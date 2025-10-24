@@ -1,0 +1,124 @@
+// Prisma schema for MatchTracker
+// Based on: https://github.com/talentedtwin/match-tracker
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// User model
+model User {
+  id                String    @id // Clerk user ID
+  email             String    @unique // Encrypted
+  name              String?   // Encrypted
+  isPremium         Boolean   @default(false)
+  hasConsent        Boolean   @default(false)
+  consentDate       DateTime?
+  isDeleted         Boolean   @default(false)
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  teams             Team[]
+  players           Player[]
+  matches           Match[]
+
+  @@index([isDeleted])
+  @@map("users")
+}
+
+// Team model
+model Team {
+  id          String    @id @default(cuid())
+  name        String    // Encrypted
+  userId      String
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  players     Player[]
+  matches     Match[]
+
+  @@index([userId, isDeleted])
+  @@map("teams")
+}
+
+// Player model
+model Player {
+  id          String    @id @default(cuid())
+  name        String    // Encrypted
+  goals       Int       @default(0)
+  assists     Int       @default(0)
+  userId      String
+  teamId      String?
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team        Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  matchStats  PlayerMatchStat[]
+
+  @@index([userId, isDeleted])
+  @@index([teamId])
+  @@map("players")
+}
+
+// Match model
+model Match {
+  id                String    @id @default(cuid())
+  opponent          String
+  date              DateTime  @default(now())
+  goalsFor          Int       @default(0)
+  goalsAgainst      Int       @default(0)
+  isFinished        Boolean   @default(false)
+  matchType         String    @default("league") // "league" or "cup"
+  venue             String    @default("home")   // "home" or "away"
+  notes             String?
+  selectedPlayerIds String[]  @default([])
+  userId            String
+  teamId            String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team              Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  playerStats       PlayerMatchStat[]
+
+  @@index([userId, isFinished])
+  @@index([date])
+  @@index([teamId])
+  @@map("matches")
+}
+
+// PlayerMatchStat model
+model PlayerMatchStat {
+  id        String   @id @default(cuid())
+  goals     Int      @default(0)
+  assists   Int      @default(0)
+  playerId  String
+  matchId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, matchId])
+  @@index([playerId])
+  @@index([matchId])
+  @@map("player_match_stats")
+}
