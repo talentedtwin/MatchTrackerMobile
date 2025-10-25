@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Image, ImageBackground } from 'react-native';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -76,24 +76,32 @@ const HomeScreen = ({ navigation }) => {
     >
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.titleContainer}>
-            <View style={styles.titleRow}>
-              <Image 
-                source={require('../../assets/logo.png')} 
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              <Text style={styles.title}>MatchTracker</Text>
+        <ImageBackground
+          source={require('../../assets/header-bg.png')}
+          style={styles.headerBackground}
+          resizeMode="cover"
+        >
+          <View style={styles.headerOverlay}>
+            <View style={styles.headerContent}>
+              <View style={styles.titleContainer}>
+                <View style={styles.titleRow}>
+                  <Image 
+                    source={require('../../assets/logo.png')} 
+                    style={styles.logo}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.title}>MatchTracker</Text>
+                </View>
+                <Text style={styles.subtitle}>
+                  Welcome back, {user?.firstName || user?.emailAddresses?.[0]?.emailAddress || 'Player'}!
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                <Text style={styles.logoutButtonText}>Sign Out</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.subtitle}>
-              Welcome back, {user?.firstName || user?.emailAddresses?.[0]?.emailAddress || 'Player'}!
-            </Text>
           </View>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Sign Out</Text>
-          </TouchableOpacity>
-        </View>
+        </ImageBackground>
       </View>
 
       {/* Quick Stats */}
@@ -279,10 +287,16 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   header: {
-    padding: 20,
-    backgroundColor: COLORS.primary,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
+    overflow: 'hidden',
+  },
+  headerBackground: {
+    width: '100%',
+  },
+  headerOverlay: {
+    backgroundColor: 'rgba(37, 99, 235, 0.55)',
+    padding: 20,
   },
   headerContent: {
     flexDirection: 'row',
@@ -315,15 +329,15 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   logoutButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: '#fff',
   },
   logoutButtonText: {
-    color: '#fff',
+    color: COLORS.primary,
     fontSize: 14,
     fontFamily: FONTS.bodyBold,
   },
