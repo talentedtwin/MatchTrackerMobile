@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -6,6 +6,11 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { setClerkTokenGetter } from '../services/api';
+import { 
+  initializeNotifications, 
+  addNotificationListeners, 
+  removeNotificationListeners 
+} from '../services/notificationService';
 import HomeScreen from '../screens/HomeScreen';
 import PlayersScreen from '../screens/PlayersScreen';
 import HistoryScreen from '../screens/HistoryScreen';
@@ -94,11 +99,43 @@ const TabNavigator = () => {
 
 const AppNavigator = () => {
   const { isSignedIn, isLoaded, getToken } = useAuth();
+  const navigationRef = useRef();
+  const notificationListeners = useRef();
 
   // Set up the Clerk token getter for API calls
   useEffect(() => {
     setClerkTokenGetter(getToken);
   }, [getToken]);
+
+  // Initialize push notifications when user signs in
+  useEffect(() => {
+    if (isSignedIn) {
+      // Initialize notifications and get push token
+      initializeNotifications();
+
+      // Add notification listeners
+      notificationListeners.current = addNotificationListeners(
+        // Handle notification received (app in foreground)
+        (notification) => {
+          console.log('Notification received:', notification);
+        },
+        // Handle notification tapped (navigate to match details)
+        (response) => {
+          const matchId = response.notification.request.content.data?.matchId;
+          if (matchId && navigationRef.current) {
+            navigationRef.current.navigate('MatchDetails', { matchId });
+          }
+        }
+      );
+
+      // Cleanup listeners on unmount
+      return () => {
+        if (notificationListeners.current) {
+          removeNotificationListeners(notificationListeners.current);
+        }
+      };
+    }
+  }, [isSignedIn]);
 
   // Show loading screen while Clerk initializes
   if (!isLoaded) {
@@ -112,7 +149,7 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         screenOptions={{
           headerStyle: {

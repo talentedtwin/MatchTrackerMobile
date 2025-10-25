@@ -119,6 +119,25 @@ class UserService {
   }
 
   /**
+   * Update user's push notification token
+   */
+  static async updatePushToken(userId, pushToken) {
+    const prisma = getPrisma();
+
+    try {
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: { pushToken },
+      });
+
+      return user;
+    } catch (error) {
+      console.error('Error updating push token:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Soft delete user (GDPR)
    */
   static async deleteUser(userId) {

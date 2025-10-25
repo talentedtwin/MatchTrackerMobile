@@ -18,6 +18,7 @@ const HistoryScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [filterType, setFilterType] = useState('all'); // 'all', 'league', 'cup'
   const [filterResult, setFilterResult] = useState('all'); // 'all', 'win', 'draw', 'loss'
+  const [showScheduled, setShowScheduled] = useState(false); // Toggle between scheduled and finished
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -28,16 +29,16 @@ const HistoryScreen = ({ navigation }) => {
   // Filter and sort matches
   const filteredMatches = useMemo(() => {
     let filtered = matches
-      .filter(match => match.isFinished) // Only show finished matches
-      .sort((a, b) => new Date(b.date) - new Date(a.date)); // Most recent first
+      .filter(match => showScheduled ? !match.isFinished : match.isFinished) // Toggle based on state
+      .sort((a, b) => new Date(showScheduled ? a.date : b.date) - new Date(showScheduled ? b.date : a.date)); // Upcoming first for scheduled, recent first for history
 
     // Filter by match type
     if (filterType !== 'all') {
       filtered = filtered.filter(match => match.matchType === filterType);
     }
 
-    // Filter by result
-    if (filterResult !== 'all') {
+    // Filter by result (only for finished matches)
+    if (!showScheduled && filterResult !== 'all') {
       filtered = filtered.filter(match => {
         const result = getMatchResult(match.goalsFor, match.goalsAgainst);
         return result === filterResult;
@@ -45,7 +46,7 @@ const HistoryScreen = ({ navigation }) => {
     }
 
     return filtered;
-  }, [matches, filterType, filterResult]);
+  }, [matches, filterType, filterResult, showScheduled]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -81,25 +82,47 @@ const HistoryScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Stats Summary */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>{stats.total}</Text>
-          <Text style={styles.statLabel}>Matches</Text>
-        </View>
-        <View style={[styles.statBox, styles.statBoxBorder]}>
-          <Text style={[styles.statValue, { color: COLORS.success }]}>{stats.wins}</Text>
-          <Text style={styles.statLabel}>Wins</Text>
-        </View>
-        <View style={[styles.statBox, styles.statBoxBorder]}>
-          <Text style={[styles.statValue, { color: COLORS.warning }]}>{stats.draws}</Text>
-          <Text style={styles.statLabel}>Draws</Text>
-        </View>
-        <View style={[styles.statBox, styles.statBoxBorder]}>
-          <Text style={[styles.statValue, { color: COLORS.error }]}>{stats.losses}</Text>
-          <Text style={styles.statLabel}>Losses</Text>
-        </View>
+      {/* Toggle between Scheduled and History */}
+      <View style={styles.toggleContainer}>
+        <TouchableOpacity
+          style={[styles.toggleButton, !showScheduled && styles.toggleButtonActive]}
+          onPress={() => setShowScheduled(false)}
+        >
+          <Text style={[styles.toggleText, !showScheduled && styles.toggleTextActive]}>
+            History
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toggleButton, showScheduled && styles.toggleButtonActive]}
+          onPress={() => setShowScheduled(true)}
+        >
+          <Text style={[styles.toggleText, showScheduled && styles.toggleTextActive]}>
+            Scheduled
+          </Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Stats Summary - Only show for finished matches */}
+      {!showScheduled && (
+        <View style={styles.statsContainer}>
+          <View style={styles.statBox}>
+            <Text style={styles.statValue}>{stats.total}</Text>
+            <Text style={styles.statLabel}>Matches</Text>
+          </View>
+          <View style={[styles.statBox, styles.statBoxBorder]}>
+            <Text style={[styles.statValue, { color: COLORS.success }]}>{stats.wins}</Text>
+            <Text style={styles.statLabel}>Wins</Text>
+          </View>
+          <View style={[styles.statBox, styles.statBoxBorder]}>
+            <Text style={[styles.statValue, { color: COLORS.warning }]}>{stats.draws}</Text>
+            <Text style={styles.statLabel}>Draws</Text>
+          </View>
+          <View style={[styles.statBox, styles.statBoxBorder]}>
+            <Text style={[styles.statValue, { color: COLORS.error }]}>{stats.losses}</Text>
+            <Text style={styles.statLabel}>Losses</Text>
+          </View>
+        </View>
+      )}
 
       {/* Filters */}
       <View style={styles.filtersContainer}>
@@ -130,41 +153,45 @@ const HistoryScreen = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
 
-          <View style={styles.filterSeparator} />
+          {/* Result Filters - Only show for finished matches */}
+          {!showScheduled && (
+            <>
+              <View style={styles.filterSeparator} />
 
-          {/* Result Filters */}
-          <TouchableOpacity
-            style={[styles.filterChip, filterResult === 'all' && styles.filterChipActive]}
-            onPress={() => setFilterResult('all')}
-          >
-            <Text style={[styles.filterText, filterResult === 'all' && styles.filterTextActive]}>
-              All Results
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterChip, filterResult === 'win' && styles.filterChipActive]}
-            onPress={() => setFilterResult('win')}
-          >
-            <Text style={[styles.filterText, filterResult === 'win' && styles.filterTextActive]}>
-              Wins
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterChip, filterResult === 'draw' && styles.filterChipActive]}
-            onPress={() => setFilterResult('draw')}
-          >
-            <Text style={[styles.filterText, filterResult === 'draw' && styles.filterTextActive]}>
-              Draws
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterChip, filterResult === 'loss' && styles.filterChipActive]}
-            onPress={() => setFilterResult('loss')}
-          >
-            <Text style={[styles.filterText, filterResult === 'loss' && styles.filterTextActive]}>
-              Losses
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterChip, filterResult === 'all' && styles.filterChipActive]}
+                onPress={() => setFilterResult('all')}
+              >
+                <Text style={[styles.filterText, filterResult === 'all' && styles.filterTextActive]}>
+                  All Results
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterChip, filterResult === 'win' && styles.filterChipActive]}
+                onPress={() => setFilterResult('win')}
+              >
+                <Text style={[styles.filterText, filterResult === 'win' && styles.filterTextActive]}>
+                  Wins
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterChip, filterResult === 'draw' && styles.filterChipActive]}
+                onPress={() => setFilterResult('draw')}
+              >
+                <Text style={[styles.filterText, filterResult === 'draw' && styles.filterTextActive]}>
+                  Draws
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterChip, filterResult === 'loss' && styles.filterChipActive]}
+                onPress={() => setFilterResult('loss')}
+              >
+                <Text style={[styles.filterText, filterResult === 'loss' && styles.filterTextActive]}>
+                  Losses
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </ScrollView>
       </View>
 
@@ -228,12 +255,21 @@ const HistoryScreen = ({ navigation }) => {
                   </View>
 
                   <View style={styles.scoreContainer}>
-                    <View style={[styles.resultBadge, { backgroundColor: resultColor }]}>
-                      <Text style={styles.resultText}>{result.toUpperCase()}</Text>
-                    </View>
-                    <Text style={styles.score}>
-                      {match.goalsFor} - {match.goalsAgainst}
-                    </Text>
+                    {!showScheduled ? (
+                      <>
+                        <View style={[styles.resultBadge, { backgroundColor: resultColor }]}>
+                          <Text style={styles.resultText}>{result.toUpperCase()}</Text>
+                        </View>
+                        <Text style={styles.score}>
+                          {match.goalsFor} - {match.goalsAgainst}
+                        </Text>
+                      </>
+                    ) : (
+                      <View style={styles.scheduledBadge}>
+                        <Ionicons name="calendar-outline" size={16} color={COLORS.primary} />
+                        <Text style={styles.scheduledText}>Scheduled</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
 
@@ -280,6 +316,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    padding: 15,
+    gap: 10,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.gray[300],
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  toggleButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  toggleTextActive: {
+    color: '#fff',
   },
   centerContainer: {
     flex: 1,
@@ -433,6 +497,20 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.text,
+  },
+  scheduledBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: COLORS.gray[100],
+  },
+  scheduledText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primary,
   },
   teamName: {
     fontSize: 12,
