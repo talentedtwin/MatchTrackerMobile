@@ -559,6 +559,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 10,
+    marginTop: 10,
   },
   actionButton: {
     flex: 1,
