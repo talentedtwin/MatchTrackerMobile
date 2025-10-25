@@ -8,6 +8,7 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useMatches, usePlayers, useStats } from '../hooks/useResources';
 import { COLORS } from '../config/constants';
 import { 
@@ -34,7 +35,7 @@ const StatsScreen = () => {
 
   // Calculate additional stats
   const computedStats = useMemo(() => {
-    const completedMatches = matches.filter(m => m.played);
+    const completedMatches = matches.filter(m => m.isFinished);
     const totalMatches = completedMatches.length;
     
     const wins = completedMatches.filter(m => 
@@ -276,7 +277,10 @@ const StatsScreen = () => {
           <View style={styles.section}>
             {/* Top Scorers */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>⚽ Top Scorers</Text>
+              <View style={styles.cardTitleRow}>
+                <Ionicons name="football" size={20} color={COLORS.primary} />
+                <Text style={styles.cardTitle}>Top Scorers</Text>
+              </View>
               
               {topScorers.length > 0 ? (
                 topScorers.map((player, index) => (
@@ -303,7 +307,10 @@ const StatsScreen = () => {
 
             {/* Top Assisters */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>🎯 Top Assists</Text>
+              <View style={styles.cardTitleRow}>
+                <Ionicons name="flash" size={20} color="#FFA500" />
+                <Text style={styles.cardTitle}>Top Assists</Text>
+              </View>
               
               {topAssisters.length > 0 ? (
                 topAssisters.map((player, index) => (
@@ -429,6 +436,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 15,
   },
   cardTitle: {
     fontSize: 18,

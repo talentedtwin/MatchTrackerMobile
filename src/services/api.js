@@ -1,6 +1,13 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../config/constants';
+
+// Store the getToken function globally
+let getClerkToken = null;
+
+// Function to set the Clerk token getter
+export const setClerkTokenGetter = (getter) => {
+  getClerkToken = getter;
+};
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -14,14 +21,16 @@ const apiClient = axios.create({
 // Request interceptor
 apiClient.interceptors.request.use(
   async (config) => {
-    // Add auth token if available
+    // Add Clerk auth token if available
     try {
-      const token = await AsyncStorage.getItem('auth_token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      if (getClerkToken) {
+        const token = await getClerkToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
       }
     } catch (error) {
-      console.error('Error getting auth token:', error);
+      console.error('Error getting Clerk token:', error);
     }
     return config;
   },
@@ -39,9 +48,7 @@ apiClient.interceptors.response.use(
     
     // Handle authentication errors
     if (error.response?.status === 401) {
-      // Token expired or invalid - handle logout
-      AsyncStorage.removeItem('auth_token');
-      // You can dispatch a logout action here if using Redux/Context
+      console.log('Authentication error - token may be invalid');
     }
     
     return Promise.reject(error);
@@ -142,5 +149,12 @@ export const healthApi = {
   },
 };
 
-export default apiClient;
+// Helper to get base URL (for direct fetch calls)
+export const getBaseUrl = () => API_URL;
+
+// Default export with helper methods
+export default {
+  ...apiClient,
+  getBaseUrl,
+};
 

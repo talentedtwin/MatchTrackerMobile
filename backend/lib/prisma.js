@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
 
 /**
  * Prisma client with connection management and retry logic
@@ -129,14 +129,12 @@ class PrismaManager {
 const prismaManager = new PrismaManager();
 
 // Export the manager and convenience methods
-module.exports = {
-  prismaManager,
-  getPrisma: () => prismaManager.getInstance(),
-  connectDb: () => prismaManager.connect(),
-  disconnectDb: () => prismaManager.disconnect(),
-  executeWithRetry: (operation, retries) => prismaManager.executeWithRetry(operation, retries),
-  healthCheck: () => prismaManager.healthCheck(),
-};
+export { prismaManager };
+export const getPrisma = () => prismaManager.getInstance();
+export const connectDb = () => prismaManager.connect();
+export const disconnectDb = () => prismaManager.disconnect();
+export const executeWithRetry = (operation, retries) => prismaManager.executeWithRetry(operation, retries);
+export const healthCheck = () => prismaManager.healthCheck();
 
 // Handle process termination
 process.on('beforeExit', async () => {

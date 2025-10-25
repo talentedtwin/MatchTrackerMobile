@@ -1,71 +1,44 @@
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 /**
  * Encryption service for sensitive data
  * Encrypts player names, team names, user email/name
+ * Compatible with the GitHub repo format (aes-256-cbc with iv:encrypted format)
  */
 class EncryptionService {
-  static ALGORITHM = 'aes-256-gcm';
-  static IV_LENGTH = 16;
-  static SALT_LENGTH = 64;
-  static TAG_LENGTH = 16;
-  static KEY_LENGTH = 32;
-  static ITERATIONS = 100000;
+  static algorithm = 'aes-256-cbc';
 
-  /**
-   * Derive encryption key from password
-   */
-  static deriveKey(password, salt) {
-    return crypto.pbkdf2Sync(
-      password,
-      salt,
-      this.ITERATIONS,
-      this.KEY_LENGTH,
-      'sha256'
-    );
+  static getKey() {
+    const key = process.env.ENCRYPTION_KEY || 'default-key-change-in-production';
+    return crypto.createHash('sha256').update(key).digest();
   }
 
   /**
-   * Encrypt a string value
-   * @param {string} text - The text to encrypt
-   * @returns {string} - Base64 encoded encrypted data with IV, salt, and auth tag
+   * Validates that the encryption key is set
+   */
+  static validateKey() {
+    if (!process.env.ENCRYPTION_KEY) {
+      console.warn('ENCRYPTION_KEY not set in environment variables. Using default key.');
+    }
+  }
+
+  /**
+   * Encrypt sensitive data (like player names)
    */
   static encrypt(text) {
     if (!text) return text;
-    
-    const encryptionKey = process.env.ENCRYPTION_KEY;
-    if (!encryptionKey) {
-      throw new Error('ENCRYPTION_KEY environment variable is not set');
-    }
+
+    this.validateKey();
 
     try {
-      // Generate random salt and IV
-      const salt = crypto.randomBytes(this.SALT_LENGTH);
-      const iv = crypto.randomBytes(this.IV_LENGTH);
-      
-      // Derive key from password
-      const key = this.deriveKey(encryptionKey, salt);
-      
-      // Create cipher
-      const cipher = crypto.createCipheriv(this.ALGORITHM, key, iv);
-      
-      // Encrypt the text
+      const iv = crypto.randomBytes(16);
+      const cipher = crypto.createCipheriv(this.algorithm, this.getKey(), iv);
+
       let encrypted = cipher.update(text, 'utf8', 'hex');
       encrypted += cipher.final('hex');
-      
-      // Get auth tag
-      const authTag = cipher.getAuthTag();
-      
-      // Combine salt + iv + authTag + encrypted data
-      const combined = Buffer.concat([
-        salt,
-        iv,
-        authTag,
-        Buffer.from(encrypted, 'hex')
-      ]);
-      
-      // Return as base64
-      return combined.toString('base64');
+
+      // Combine IV and encrypted data
+      return iv.toString('hex') + ':' + encrypted;
     } catch (error) {
       console.error('Encryption error:', error);
       throw new Error('Failed to encrypt data');
@@ -73,42 +46,26 @@ class EncryptionService {
   }
 
   /**
-   * Decrypt a string value
-   * @param {string} encryptedData - Base64 encoded encrypted data
-   * @returns {string} - Decrypted text
+   * Decrypt sensitive data
    */
-  static decrypt(encryptedData) {
-    if (!encryptedData) return encryptedData;
-    
-    const encryptionKey = process.env.ENCRYPTION_KEY;
-    if (!encryptionKey) {
-      throw new Error('ENCRYPTION_KEY environment variable is not set');
-    }
+  static decrypt(encryptedText) {
+    if (!encryptedText) return encryptedText;
+
+    this.validateKey();
 
     try {
-      // Decode from base64
-      const combined = Buffer.from(encryptedData, 'base64');
-      
-      // Extract components
-      const salt = combined.slice(0, this.SALT_LENGTH);
-      const iv = combined.slice(this.SALT_LENGTH, this.SALT_LENGTH + this.IV_LENGTH);
-      const authTag = combined.slice(
-        this.SALT_LENGTH + this.IV_LENGTH,
-        this.SALT_LENGTH + this.IV_LENGTH + this.TAG_LENGTH
-      );
-      const encrypted = combined.slice(this.SALT_LENGTH + this.IV_LENGTH + this.TAG_LENGTH);
-      
-      // Derive key from password
-      const key = this.deriveKey(encryptionKey, salt);
-      
-      // Create decipher
-      const decipher = crypto.createDecipheriv(this.ALGORITHM, key, iv);
-      decipher.setAuthTag(authTag);
-      
-      // Decrypt the data
-      let decrypted = decipher.update(encrypted.toString('hex'), 'hex', 'utf8');
+      const parts = encryptedText.split(':');
+      if (parts.length !== 2) {
+        throw new Error('Invalid encrypted data format');
+      }
+
+      const [ivHex, encrypted] = parts;
+      const iv = Buffer.from(ivHex, 'hex');
+      const decipher = crypto.createDecipheriv(this.algorithm, this.getKey(), iv);
+
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
-      
+
       return decrypted;
     } catch (error) {
       console.error('Decryption error:', error);
@@ -149,17 +106,7 @@ class EncryptionService {
   }
 
   /**
-   * Encrypt an array of objects
-   * @param {Array<Object>} arr - Array of objects to encrypt
-   * @param {Array<string>} fields - Field names to encrypt
-   * @returns {Array<Object>} - Array with encrypted fields
-   */
-  static encryptArray(arr, fields) {
-    return arr.map(obj => this.encryptFields(obj, fields));
-  }
-
-  /**
-   * Decrypt an array of objects
+   * Decrypt an array of objects' specified fields
    * @param {Array<Object>} arr - Array of objects to decrypt
    * @param {Array<string>} fields - Field names to decrypt
    * @returns {Array<Object>} - Array with decrypted fields
@@ -169,4 +116,4 @@ class EncryptionService {
   }
 }
 
-module.exports = EncryptionService;
+export default EncryptionService;

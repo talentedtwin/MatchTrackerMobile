@@ -2,7 +2,7 @@
  * Health Check API Route
  * GET /api/health - Basic health check
  */
-const { healthCheck } = require('../../lib/prisma');
+import { healthCheck  } from '../../lib/prisma.js';
 
 async function handler(req, res) {
   if (req.method === 'GET') {
@@ -39,4 +39,4 @@ async function handler(req, res) {
   });
 }
 
-module.exports = handler;
+export default handler;

@@ -1,4 +1,7 @@
 // API Configuration
+// For physical device testing, use your computer's local IP address
+// Find your IP with: ipconfig (look for IPv4 Address under your WiFi adapter)
+// Example: 'http://192.168.1.100:3000/api'
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 // App Configuration
@@ -48,5 +51,13 @@ export const COLORS = {
     700: '#374151',
     800: '#1f2937',
   },
+};
+
+// Fonts
+export const FONTS = {
+  heading: 'BebasNeue_400Regular',
+  body: 'RobotoCondensed_400Regular',
+  bodyLight: 'RobotoCondensed_300Light',
+  bodyBold: 'RobotoCondensed_700Bold',
 };
 

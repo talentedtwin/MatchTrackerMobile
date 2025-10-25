@@ -1,121 +1,102 @@
-// Prisma schema for MatchTracker
-// Based on: https://github.com/talentedtwin/match-tracker
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-// User model
 model User {
-  id                String    @id // Clerk user ID
-  email             String    @unique // Encrypted
-  name              String?   // Encrypted
-  isPremium         Boolean   @default(false)
-  hasConsent        Boolean   @default(false)
-  consentDate       DateTime?
-  isDeleted         Boolean   @default(false)
-  deletedAt         DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  // Relations
-  teams             Team[]
-  players           Player[]
-  matches           Match[]
+  id                 String    @id
+  email              String    @unique
+  name               String?
+  isPremium          Boolean   @default(false)
+  gdprConsentDate    DateTime?
+  consentWithdrawn   Boolean   @default(false)
+  dataRetentionUntil DateTime?
+  lastLoginAt        DateTime?
+  isDeleted          Boolean   @default(false)
+  deletedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  matches            Match[]
+  players            Player[]
+  teams              Team[]
 
   @@index([isDeleted])
   @@map("users")
 }
 
-// Team model
 model Team {
-  id          String    @id @default(cuid())
-  name        String    // Encrypted
-  userId      String
-  isDeleted   Boolean   @default(false)
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  // Relations
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  players     Player[]
-  matches     Match[]
+  id        String    @id @default(cuid())
+  name      String
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  userId    String
+  matches   Match[]
+  players   Player[]
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isDeleted])
   @@map("teams")
 }
 
-// Player model
 model Player {
-  id          String    @id @default(cuid())
-  name        String    // Encrypted
-  goals       Int       @default(0)
-  assists     Int       @default(0)
-  userId      String
-  teamId      String?
-  isDeleted   Boolean   @default(false)
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  // Relations
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team        Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  matchStats  PlayerMatchStat[]
+  id         String            @id @default(cuid())
+  name       String
+  goals      Int               @default(0)
+  assists    Int               @default(0)
+  isDeleted  Boolean           @default(false)
+  deletedAt  DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  userId     String
+  teamId     String?
+  matchStats PlayerMatchStat[]
+  team       Team?             @relation(fields: [teamId], references: [id])
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isDeleted])
   @@index([teamId])
   @@map("players")
 }
 
-// Match model
 model Match {
-  id                String    @id @default(cuid())
+  id                String            @id @default(cuid())
   opponent          String
-  date              DateTime  @default(now())
-  goalsFor          Int       @default(0)
-  goalsAgainst      Int       @default(0)
-  isFinished        Boolean   @default(false)
-  matchType         String    @default("league") // "league" or "cup"
-  venue             String    @default("home")   // "home" or "away"
+  date              DateTime
+  goalsFor          Int               @default(0)
+  goalsAgainst      Int               @default(0)
+  isFinished        Boolean           @default(false)
+  matchType         String            @default("league")
   notes             String?
-  selectedPlayerIds String[]  @default([])
+  selectedPlayerIds String[]          @default([])
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   userId            String
   teamId            String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  // Relations
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team              Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  venue             String            @default("home")
+  team              Team?             @relation(fields: [teamId], references: [id])
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   playerStats       PlayerMatchStat[]
 
   @@index([userId, isFinished])
   @@index([date])
-  @@index([teamId])
   @@map("matches")
 }
 
-// PlayerMatchStat model
 model PlayerMatchStat {
-  id        String   @id @default(cuid())
-  goals     Int      @default(0)
-  assists   Int      @default(0)
-  playerId  String
-  matchId   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  goals    Int    @default(0)
+  assists  Int    @default(0)
+  playerId String
+  matchId  String
+  match    Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@unique([playerId, matchId])
   @@index([playerId])

@@ -1,6 +1,6 @@
-const { getPrisma } = require('./prisma');
-const { withDatabaseUserContext } = require('./db-utils');
-const EncryptionService = require('./encryption');
+import { getPrisma } from './prisma.js';
+import { withDatabaseUserContext } from './db-utils.js';
+import EncryptionService from './encryption.js';
 
 /**
  * Service class for player operations
@@ -57,13 +57,10 @@ class PlayerService {
         include: {
           team: includeTeam,
           matchStats: {
-            include: {
-              match: true,
+            select: {
+              goals: true,
+              assists: true,
             },
-            orderBy: {
-              createdAt: 'desc',
-            },
-            take: 10,
           },
         },
         orderBy: {
@@ -71,15 +68,24 @@ class PlayerService {
         },
       });
 
-      // Decrypt player names and team names
-      return players.map(player => ({
-        ...player,
-        name: EncryptionService.decrypt(player.name),
-        team: player.team ? {
-          ...player.team,
-          name: EncryptionService.decrypt(player.team.name),
-        } : null,
-      }));
+      // Decrypt player names, calculate stats totals from matchStats
+      return players.map(player => {
+        // Calculate total goals and assists from all match stats
+        const totalGoals = player.matchStats.reduce((sum, stat) => sum + stat.goals, 0);
+        const totalAssists = player.matchStats.reduce((sum, stat) => sum + stat.assists, 0);
+
+        return {
+          ...player,
+          name: EncryptionService.decrypt(player.name),
+          goals: totalGoals, // Override with calculated total
+          assists: totalAssists, // Override with calculated total
+          team: player.team ? {
+            ...player.team,
+            name: EncryptionService.decrypt(player.team.name),
+          } : null,
+          matchStats: undefined, // Remove matchStats from response to keep it clean
+        };
+      });
     });
   }
 
@@ -101,7 +107,7 @@ class PlayerService {
               match: true,
             },
             orderBy: {
-              createdAt: 'desc',
+              id: 'desc',
             },
           },
         },
@@ -313,4 +319,4 @@ class PlayerService {
   }
 }
 
-module.exports = PlayerService;
+export default PlayerService;

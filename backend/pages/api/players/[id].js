@@ -4,13 +4,13 @@
  * PUT /api/players/[id] - Update player
  * DELETE /api/players/[id] - Delete player (soft delete)
  */
-const { requireAuth } = require('../../../middleware/auth');
-const PlayerService = require('../../../lib/playerService');
+import { requireAuth } from '../../../middleware/auth.js';
+import PlayerService from '../../../lib/playerService.js';
 
 async function handler(req, res) {
   try {
     // Get authenticated user
-    const userId = await requireAuth();
+    const userId = await requireAuth(req);
     const { id } = req.query;
 
     if (!id) {
@@ -83,4 +83,4 @@ async function handler(req, res) {
   }
 }
 
-module.exports = handler;
+export default handler;

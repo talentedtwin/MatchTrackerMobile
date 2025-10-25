@@ -1,4 +1,4 @@
-const { getPrisma, executeWithRetry } = require('./prisma');
+import { getPrisma, executeWithRetry } from './prisma.js';
 
 /**
  * Set database user context for Row Level Security
@@ -217,7 +217,7 @@ const dbUtils = {
   },
 };
 
-module.exports = {
+export {
   setDatabaseUserContext,
   withDatabaseUserContext,
   retryDbOperation,

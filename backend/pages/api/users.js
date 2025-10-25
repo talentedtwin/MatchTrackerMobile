@@ -3,13 +3,13 @@
  * GET /api/users - Get current authenticated user
  * PUT /api/users - Update current user
  */
-const { requireAuth } = require('../../middleware/auth');
-const UserService = require('../../lib/userService');
+import { requireAuth  } from '../../middleware/auth.js';
+import UserService from '../../lib/userService.js';
 
 async function handler(req, res) {
   try {
     // Get authenticated user
-    const userId = await requireAuth();
+    const userId = await requireAuth(req);
 
     if (req.method === 'GET') {
       const user = await UserService.getUserById(userId);
@@ -68,4 +68,4 @@ async function handler(req, res) {
   }
 }
 
-module.exports = handler;
+export default handler;

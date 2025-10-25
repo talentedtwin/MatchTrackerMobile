@@ -4,9 +4,9 @@
  * 
  * Synchronizes Clerk users with the database
  */
-const { Webhook } = require('svix');
-const { getPrisma } = require('../../../lib/prisma');
-const EncryptionService = require('../../../lib/encryption');
+import { Webhook  } from 'svix';
+import { getPrisma  } from '../../../lib/prisma.js';
+import EncryptionService from '../../../lib/encryption.js';
 
 async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -184,4 +184,4 @@ async function webhookHandler(req, res) {
   return handler(req, res);
 }
 
-module.exports = webhookHandler;
+export default webhookHandler;

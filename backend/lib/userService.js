@@ -1,6 +1,6 @@
-const { getPrisma } = require('./prisma');
-const { withDatabaseUserContext } = require('./db-utils');
-const EncryptionService = require('./encryption');
+import { getPrisma } from './prisma.js';
+import { withDatabaseUserContext } from './db-utils.js';
+import EncryptionService from './encryption.js';
 
 /**
  * Service class for user operations
@@ -19,12 +19,8 @@ class UserService {
       });
 
       if (user) {
-        // User exists, decrypt and return
-        return {
-          ...user,
-          email: user.email ? EncryptionService.decrypt(user.email) : null,
-          name: user.name ? EncryptionService.decrypt(user.name) : null,
-        };
+        // User exists, return as-is (encryption handled at query level if needed)
+        return user;
       }
 
       // Create new user
@@ -33,18 +29,15 @@ class UserService {
       user = await prisma.user.create({
         data: {
           id: clerkUserId,
-          email: email ? EncryptionService.encrypt(email) : null,
-          name: name ? EncryptionService.encrypt(name) : null,
+          email: email || null,
+          name: name || null,
           isPremium: false,
-          hasConsent: false,
+          consentWithdrawn: false,
+          lastLoginAt: new Date(),
         },
       });
 
-      return {
-        ...user,
-        email: user.email ? EncryptionService.decrypt(user.email) : null,
-        name: user.name ? EncryptionService.decrypt(user.name) : null,
-      };
+      return user;
     } catch (error) {
       console.error('Error ensuring user exists:', error);
       throw error;
@@ -345,4 +338,4 @@ class UserService {
   }
 }
 
-module.exports = UserService;
+export default UserService;

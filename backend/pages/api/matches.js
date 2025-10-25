@@ -3,15 +3,15 @@
  * GET /api/matches - Get all matches for authenticated user
  * POST /api/matches - Create a new match
  */
-const { requireAuth } = require('../../middleware/auth');
-const { withDatabaseUserContext } = require('../../lib/db-utils');
-const { getPrisma } = require('../../lib/prisma');
-const EncryptionService = require('../../lib/encryption');
+import { requireAuth  } from '../../middleware/auth.js';
+import { withDatabaseUserContext  } from '../../lib/db-utils.js';
+import { getPrisma  } from '../../lib/prisma.js';
+import EncryptionService from '../../lib/encryption.js';
 
 async function handler(req, res) {
   try {
     // Get authenticated user
-    const userId = await requireAuth();
+    const userId = await requireAuth(req);
 
     if (req.method === 'GET') {
       const { 
@@ -161,4 +161,4 @@ async function handler(req, res) {
   }
 }
 
-module.exports = handler;
+export default handler;

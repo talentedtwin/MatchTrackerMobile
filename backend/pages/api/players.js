@@ -3,13 +3,13 @@
  * GET /api/players - Get all players for authenticated user
  * POST /api/players - Create a new player
  */
-const { requireAuth } = require('../../middleware/auth');
-const PlayerService = require('../../lib/playerService');
+import { requireAuth } from '../../middleware/auth.js';
+import PlayerService from '../../lib/playerService.js';
 
 async function handler(req, res) {
   try {
     // Get authenticated user
-    const userId = await requireAuth();
+    const userId = await requireAuth(req);
 
     if (req.method === 'GET') {
       // Get query parameters
@@ -74,4 +74,4 @@ async function handler(req, res) {
   }
 }
 
-module.exports = handler;
+export default handler;

@@ -4,15 +4,15 @@
  * PUT /api/matches/[id] - Update match
  * DELETE /api/matches/[id] - Delete match
  */
-const { requireAuth } = require('../../../middleware/auth');
-const { withDatabaseUserContext } = require('../../../lib/db-utils');
-const { getPrisma } = require('../../../lib/prisma');
-const EncryptionService = require('../../../lib/encryption');
+import { requireAuth } from '../../../middleware/auth.js';
+import { withDatabaseUserContext } from '../../../lib/db-utils.js';
+import { getPrisma } from '../../../lib/prisma.js';
+import EncryptionService from '../../../lib/encryption.js';
 
 async function handler(req, res) {
   try {
     // Get authenticated user
-    const userId = await requireAuth();
+    const userId = await requireAuth(req);
     const { id } = req.query;
 
     if (!id) {
@@ -86,21 +86,31 @@ async function handler(req, res) {
         teamId,
       } = req.body;
 
+      // Debug logging
+      console.log('PUT /api/matches/[id] - Request body:', req.body);
+      console.log('selectedPlayerIds:', selectedPlayerIds);
+      console.log('selectedPlayerIds type:', typeof selectedPlayerIds);
+      console.log('selectedPlayerIds is array:', Array.isArray(selectedPlayerIds));
+
       const match = await withDatabaseUserContext(userId, async (tx) => {
+        const updateData = {
+          ...(opponent !== undefined && { opponent }),
+          ...(date !== undefined && { date: new Date(date) }),
+          ...(goalsFor !== undefined && { goalsFor }),
+          ...(goalsAgainst !== undefined && { goalsAgainst }),
+          ...(isFinished !== undefined && { isFinished }),
+          ...(matchType !== undefined && { matchType }),
+          ...(venue !== undefined && { venue }),
+          ...(notes !== undefined && { notes }),
+          ...(selectedPlayerIds !== undefined && { selectedPlayerIds }),
+          ...(teamId !== undefined && { teamId }),
+        };
+        
+        console.log('Update data being sent to Prisma:', JSON.stringify(updateData, null, 2));
+        
         const result = await tx.match.update({
           where: { id },
-          data: {
-            ...(opponent !== undefined && { opponent }),
-            ...(date !== undefined && { date: new Date(date) }),
-            ...(goalsFor !== undefined && { goalsFor }),
-            ...(goalsAgainst !== undefined && { goalsAgainst }),
-            ...(isFinished !== undefined && { isFinished }),
-            ...(matchType !== undefined && { matchType }),
-            ...(venue !== undefined && { venue }),
-            ...(notes !== undefined && { notes }),
-            ...(selectedPlayerIds !== undefined && { selectedPlayerIds }),
-            ...(teamId !== undefined && { teamId }),
-          },
+          data: updateData,
           include: {
             team: true,
             playerStats: {
@@ -174,4 +184,4 @@ async function handler(req, res) {
   }
 }
 
-module.exports = handler;
+export default handler;

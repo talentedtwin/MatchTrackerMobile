@@ -1,24 +1,61 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Image } from 'react-native';
+import { useUser, useAuth } from '@clerk/clerk-expo';
+import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useMatches, usePlayers } from '../hooks/useResources';
 import { formatDateTime } from '../utils/helpers';
-import { COLORS } from '../config/constants';
+import { COLORS, FONTS } from '../config/constants';
 
 const HomeScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useAuth();
   const { matches, loading: matchesLoading, refetch: refetchMatches } = useMatches();
   const { players, loading: playersLoading } = usePlayers();
   const [refreshing, setRefreshing] = useState(false);
 
-  // Get current/upcoming match
-  const currentMatch = matches.find(m => !m.isFinished);
-  const recentMatches = matches.filter(m => m.isFinished).slice(0, 3);
+  // Refetch matches when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refetchMatches();
+    }, [refetchMatches])
+  );
+
+  // Get scheduled matches (not yet started - in the future or no scores yet)
+  const scheduledMatches = matches?.filter(m => !m.isFinished) || [];
+  // Sort scheduled matches by date (soonest first)
+  const upcomingMatches = scheduledMatches
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 3);
+  
+  const recentMatches = matches?.filter(m => m.isFinished).slice(0, 3) || [];
 
   const onRefresh = async () => {
     setRefreshing(true);
     await refetchMatches();
     setRefreshing(false);
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to sign out');
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (matchesLoading || playersLoading) {
@@ -39,63 +76,115 @@ const HomeScreen = ({ navigation }) => {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>⚽ MatchTracker</Text>
-        <Text style={styles.subtitle}>
-          Welcome back, {user?.name || 'Player'}!
-        </Text>
+        <View style={styles.headerContent}>
+          <View style={styles.titleContainer}>
+            <View style={styles.titleRow}>
+              <Image 
+                source={require('../../assets/logo.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <Text style={styles.title}>MatchTracker</Text>
+            </View>
+            <Text style={styles.subtitle}>
+              Welcome back, {user?.firstName || user?.emailAddresses?.[0]?.emailAddress || 'Player'}!
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{matches.length}</Text>
+          <Text style={styles.statValue}>{matches?.length || 0}</Text>
           <Text style={styles.statLabel}>Total Matches</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{players.length}</Text>
+          <Text style={styles.statValue}>{players?.length || 0}</Text>
           <Text style={styles.statLabel}>Players</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>
-            {matches.filter(m => m.isFinished && m.goalsFor > m.goalsAgainst).length}
+            {matches?.filter(m => m.isFinished && m.goalsFor > m.goalsAgainst).length || 0}
           </Text>
           <Text style={styles.statLabel}>Wins</Text>
         </View>
       </View>
 
-      {/* Current Match */}
-      {currentMatch ? (
+      {/* Scheduled Matches */}
+      {upcomingMatches.length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Current Match</Text>
-          <TouchableOpacity
-            style={[styles.matchCard, styles.currentMatchCard]}
-            onPress={() => navigation.navigate('MatchDetails', { matchId: currentMatch.id })}
-          >
-            <View style={styles.matchHeader}>
-              <Text style={styles.matchOpponent}>{currentMatch.opponent}</Text>
-              <View style={styles.matchTypeBadge}>
-                <Text style={styles.matchTypeText}>{currentMatch.matchType.toUpperCase()}</Text>
-              </View>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="calendar" size={24} color={COLORS.primary} />
+              <Text style={styles.sectionTitle}>Scheduled Matches</Text>
             </View>
-            <Text style={styles.matchDate}>{formatDateTime(currentMatch.date)}</Text>
-            <View style={styles.scoreContainer}>
-              <Text style={styles.score}>
-                {currentMatch.goalsFor} - {currentMatch.goalsAgainst}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.continueButton}>
-              <Text style={styles.continueButtonText}>Continue Match →</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('History')}>
+              <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
+          </View>
+          {upcomingMatches.map((match) => (
+            <View
+              key={match.id}
+              style={[styles.matchCard, styles.scheduledMatchCard]}
+            >
+              <View style={styles.matchHeader}>
+                <Text style={styles.matchOpponent}>{match.opponent}</Text>
+                <View style={styles.matchHeaderActions}>
+                  <View style={styles.matchTypeBadge}>
+                    <Text style={styles.matchTypeText}>{match.matchType.toUpperCase()}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => navigation.navigate('EditMatch', { matchId: match.id, match })}
+                  >
+                    <Ionicons name="create-outline" size={18} color={COLORS.primary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.matchInfoRow}>
+                <Ionicons name="location" size={14} color={COLORS.textSecondary} />
+                <Text style={styles.matchDate}>
+                  {match.venue === 'home' ? 'Home' : 'Away'} • {formatDateTime(match.date)}
+                </Text>
+              </View>
+              {match.selectedPlayerIds && match.selectedPlayerIds.length > 0 && (
+                <View style={styles.matchInfoRow}>
+                  <Ionicons name="people" size={14} color={COLORS.textSecondary} />
+                  <Text style={styles.playerCount}>
+                    {match.selectedPlayerIds.length} player{match.selectedPlayerIds.length !== 1 ? 's' : ''} selected
+                  </Text>
+                </View>
+              )}
+              {match.notes && (
+                <View style={styles.matchInfoRow}>
+                  <Ionicons name="document-text" size={14} color={COLORS.textSecondary} />
+                  <Text style={styles.matchNotes} numberOfLines={2}>
+                    {match.notes}
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity
+                style={styles.startMatchButton}
+                onPress={() => navigation.navigate('MatchDetails', { matchId: match.id })}
+              >
+                <Ionicons name="play-circle" size={20} color="#fff" />
+                <Text style={styles.startMatchButtonText}>Start Match</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
         </View>
       ) : (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>No Active Match</Text>
+          <Text style={styles.sectionTitle}>No Scheduled Matches</Text>
           <TouchableOpacity
-            style={styles.startMatchButton}
-            onPress={() => navigation.navigate('NewMatch')}
+            style={styles.addMatchButton}
+            onPress={() => navigation.navigate('AddMatch')}
           >
-            <Text style={styles.startMatchButtonText}>+ Start New Match</Text>
+            <Text style={styles.addMatchButtonText}>+ Schedule New Match</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -140,16 +229,31 @@ const HomeScreen = ({ navigation }) => {
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionsContainer}>
           <TouchableOpacity
+            style={[styles.actionButton, styles.actionButtonPrimary]}
+            onPress={() => navigation.navigate('AddMatch')}
+          >
+            <View style={styles.actionButtonContent}>
+              <Ionicons name="add-circle" size={24} color="#fff" />
+              <Text style={[styles.actionButtonText, styles.actionButtonPrimaryText]}>Add Match</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('Players')}
           >
-            <Text style={styles.actionButtonText}>👥 Manage Players</Text>
+            <View style={styles.actionButtonContent}>
+              <Ionicons name="people" size={24} color={COLORS.primary} />
+              <Text style={styles.actionButtonText}>Manage Players</Text>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('Stats')}
           >
-            <Text style={styles.actionButtonText}>📊 View Statistics</Text>
+            <View style={styles.actionButtonContent}>
+              <Ionicons name="stats-chart" size={24} color={COLORS.primary} />
+              <Text style={styles.actionButtonText}>View Statistics</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -171,6 +275,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
+    fontFamily: FONTS.body,
     color: COLORS.textSecondary,
   },
   header: {
@@ -179,16 +284,48 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  titleContainer: {
+    flex: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 5,
+  },
+  logo: {
+    width: 32,
+    height: 32,
+    marginRight: 10,
+  },
+  title: {
+    fontSize: 32,
+    fontFamily: FONTS.heading,
+    color: '#fff',
+    letterSpacing: 2,
   },
   subtitle: {
     fontSize: 16,
+    fontFamily: FONTS.body,
     color: '#fff',
     opacity: 0.9,
+  },
+  logoutButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: FONTS.bodyBold,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -210,13 +347,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontFamily: FONTS.heading,
     color: COLORS.primary,
     marginBottom: 5,
+    letterSpacing: 1,
   },
   statLabel: {
     fontSize: 12,
+    fontFamily: FONTS.body,
     color: COLORS.textSecondary,
   },
   section: {
@@ -229,15 +368,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontFamily: FONTS.heading,
     color: COLORS.text,
-    marginBottom: 15,
+    letterSpacing: 1,
   },
   seeAllText: {
     color: COLORS.primary,
     fontSize: 14,
+    fontFamily: FONTS.bodyBold,
   },
   matchCard: {
     backgroundColor: '#fff',
@@ -254,17 +399,27 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: COLORS.success,
   },
+  scheduledMatchCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+  },
   matchHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
   },
+  matchHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   matchOpponent: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontFamily: FONTS.bodyBold,
     color: COLORS.text,
     flex: 1,
+    marginRight: 10,
   },
   matchTypeBadge: {
     backgroundColor: COLORS.primary,
@@ -275,21 +430,56 @@ const styles = StyleSheet.create({
   matchTypeText: {
     color: '#fff',
     fontSize: 10,
-    fontWeight: 'bold',
+    fontFamily: FONTS.bodyBold,
+    textTransform: 'uppercase',
+  },
+  editButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  editButtonText: {
+    fontSize: 14,
   },
   matchDate: {
     fontSize: 14,
+    fontFamily: FONTS.body,
     color: COLORS.textSecondary,
-    marginBottom: 10,
+    marginBottom: 8,
+  },
+  matchInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  playerCount: {
+    fontSize: 13,
+    fontFamily: FONTS.body,
+    color: COLORS.textSecondary,
+    marginBottom: 8,
+  },
+  matchNotes: {
+    fontSize: 13,
+    fontFamily: FONTS.body,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+    marginBottom: 12,
   },
   scoreContainer: {
     alignItems: 'center',
     marginVertical: 15,
   },
   score: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 36,
+    fontFamily: FONTS.heading,
     color: COLORS.text,
+    letterSpacing: 2,
   },
   continueButton: {
     backgroundColor: COLORS.success,
@@ -300,18 +490,33 @@ const styles = StyleSheet.create({
   continueButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily: FONTS.bodyBold,
   },
   startMatchButton: {
+    backgroundColor: COLORS.success,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  startMatchButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontFamily: FONTS.bodyBold,
+  },
+  addMatchButton: {
     backgroundColor: COLORS.primary,
     padding: 15,
     borderRadius: 12,
     alignItems: 'center',
   },
-  startMatchButtonText: {
+  addMatchButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily: FONTS.bodyBold,
   },
   matchRow: {
     flexDirection: 'row',
@@ -326,7 +531,7 @@ const styles = StyleSheet.create({
   },
   result: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontFamily: FONTS.bodyBold,
     color: COLORS.text,
   },
   resultWin: {
@@ -337,13 +542,15 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
+    gap: 10,
   },
   actionButton: {
     flex: 1,
+    minWidth: '45%',
     backgroundColor: '#fff',
     padding: 15,
-    marginHorizontal: 5,
     borderRadius: 12,
     alignItems: 'center',
     elevation: 2,
@@ -352,10 +559,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
+  actionButtonPrimary: {
+    backgroundColor: COLORS.primary,
+    flexBasis: '100%',
+  },
+  actionButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.text,
+  },
+  actionButtonPrimaryText: {
+    color: '#fff',
+    fontSize: 16,
   },
 });
 

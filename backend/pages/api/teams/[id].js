@@ -4,15 +4,15 @@
  * PUT /api/teams/[id] - Update team
  * DELETE /api/teams/[id] - Delete team (soft delete)
  */
-const { requireAuth } = require('../../../middleware/auth');
-const { withDatabaseUserContext } = require('../../../lib/db-utils');
-const { getPrisma } = require('../../../lib/prisma');
-const EncryptionService = require('../../../lib/encryption');
+import { requireAuth } from '../../../middleware/auth.js';
+import { withDatabaseUserContext } from '../../../lib/db-utils.js';
+import { getPrisma } from '../../../lib/prisma.js';
+import EncryptionService from '../../../lib/encryption.js';
 
 async function handler(req, res) {
   try {
     // Get authenticated user
-    const userId = await requireAuth();
+    const userId = await requireAuth(req);
     const { id } = req.query;
 
     if (!id) {
@@ -147,4 +147,4 @@ async function handler(req, res) {
   }
 }
 
-module.exports = handler;
+export default handler;

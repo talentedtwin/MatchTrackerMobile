@@ -1,9 +1,7 @@
-"use client";
-
-const { useUser, useSignUp } = require("@clerk/nextjs");
-const { useRouter } = require("next/navigation");
-const { useEffect, useState } = require("react");
-const Link = require("next/link");
+import { useUser, useSignUp } from "@clerk/nextjs";
+import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 
 export default function SignUpPage() {
   const { isSignedIn, isLoaded } = useUser();

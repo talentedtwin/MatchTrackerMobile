@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useMatches } from '../hooks/useResources';
 import { COLORS, MATCH_TYPES, VENUE_TYPES } from '../config/constants';
 import { formatDate, getMatchResult, getResultColor } from '../utils/helpers';
@@ -27,7 +28,7 @@ const HistoryScreen = ({ navigation }) => {
   // Filter and sort matches
   const filteredMatches = useMemo(() => {
     let filtered = matches
-      .filter(match => match.played) // Only show finished matches
+      .filter(match => match.isFinished) // Only show finished matches
       .sort((a, b) => new Date(b.date) - new Date(a.date)); // Most recent first
 
     // Filter by match type
@@ -48,7 +49,7 @@ const HistoryScreen = ({ navigation }) => {
 
   // Calculate stats
   const stats = useMemo(() => {
-    const completed = matches.filter(m => m.played);
+    const completed = matches.filter(m => m.isFinished);
     const wins = completed.filter(m => getMatchResult(m.goalsFor, m.goalsAgainst) === 'win').length;
     const draws = completed.filter(m => getMatchResult(m.goalsFor, m.goalsAgainst) === 'draw').length;
     const losses = completed.filter(m => getMatchResult(m.goalsFor, m.goalsAgainst) === 'loss').length;
@@ -197,18 +198,33 @@ const HistoryScreen = ({ navigation }) => {
                 <View style={styles.matchHeader}>
                   <Text style={styles.matchDate}>{formatDate(match.date)}</Text>
                   <View style={styles.matchTypeBadge}>
-                    <Text style={styles.matchTypeText}>
-                      {match.matchType === MATCH_TYPES.CUP ? '🏆 Cup' : '⚽ League'}
-                    </Text>
+                    {match.matchType === MATCH_TYPES.CUP ? (
+                      <View style={styles.badgeContent}>
+                        <Ionicons name="trophy" size={14} color="#FFD700" />
+                        <Text style={styles.matchTypeText}>Cup</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.badgeContent}>
+                        <Ionicons name="football" size={14} color={COLORS.primary} />
+                        <Text style={styles.matchTypeText}>League</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
 
                 <View style={styles.matchContent}>
                   <View style={styles.matchInfo}>
                     <Text style={styles.opponent}>{match.opponent}</Text>
-                    <Text style={styles.venue}>
-                      {match.venue === VENUE_TYPES.HOME ? '🏠 Home' : '✈️ Away'}
-                    </Text>
+                    <View style={styles.venueRow}>
+                      <Ionicons 
+                        name={match.venue === VENUE_TYPES.HOME ? "home" : "airplane"} 
+                        size={14} 
+                        color={COLORS.textSecondary} 
+                      />
+                      <Text style={styles.venue}>
+                        {match.venue === VENUE_TYPES.HOME ? 'Home' : 'Away'}
+                      </Text>
+                    </View>
                   </View>
 
                   <View style={styles.scoreContainer}>
@@ -223,6 +239,33 @@ const HistoryScreen = ({ navigation }) => {
 
                 {match.team && (
                   <Text style={styles.teamName}>Team: {match.team.name}</Text>
+                )}
+
+                {/* Player Stats */}
+                {match.playerStats && match.playerStats.length > 0 && (
+                  <View style={styles.playerStatsContainer}>
+                    {match.playerStats
+                      .filter(stat => stat.goals > 0 || stat.assists > 0)
+                      .map(stat => (
+                        <View key={stat.id} style={styles.playerStatRow}>
+                          <Text style={styles.playerStatName}>{stat.player.name}</Text>
+                          <View style={styles.playerStatNumbers}>
+                            {stat.goals > 0 && (
+                              <View style={styles.statBadge}>
+                                <Ionicons name="football" size={12} color={COLORS.primary} />
+                                <Text style={styles.playerStatItem}>{stat.goals}</Text>
+                              </View>
+                            )}
+                            {stat.assists > 0 && (
+                              <View style={styles.statBadge}>
+                                <Ionicons name="flash" size={12} color="#FFA500" />
+                                <Text style={styles.playerStatItem}>{stat.assists}</Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      ))}
+                  </View>
                 )}
               </TouchableOpacity>
             );
@@ -340,6 +383,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: COLORS.gray[100],
   },
+  badgeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   matchTypeText: {
     fontSize: 12,
     fontWeight: '600',
@@ -361,6 +409,11 @@ const styles = StyleSheet.create({
   venue: {
     fontSize: 14,
     color: COLORS.textSecondary,
+  },
+  venueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   scoreContainer: {
     alignItems: 'flex-end',
@@ -388,6 +441,39 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: COLORS.gray[200],
+  },
+  playerStatsContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray[200],
+  },
+  playerStatRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  playerStatName: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: '500',
+    flex: 1,
+  },
+  playerStatNumbers: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  statBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  playerStatItem: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   emptyContainer: {
     padding: 40,

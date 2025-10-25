@@ -11,6 +11,7 @@ import {
   Modal,
   RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { usePlayers, useTeams } from '../hooks/useResources';
 import { COLORS } from '../config/constants';
 
@@ -251,13 +252,13 @@ const PlayersScreen = () => {
                           style={styles.iconButton}
                           onPress={() => handleEditTeam(team)}
                         >
-                          <Text style={styles.iconButtonText}>✏️</Text>
+                          <Ionicons name="create-outline" size={18} color={COLORS.primary} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.iconButton}
                           onPress={() => handleDeleteTeam(team.id)}
                         >
-                          <Text style={styles.iconButtonText}>🗑️</Text>
+                          <Ionicons name="trash-outline" size={18} color={COLORS.error} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -304,22 +305,30 @@ const PlayersScreen = () => {
                   <View key={player.id} style={styles.playerCard}>
                     <View style={styles.playerInfo}>
                       <Text style={styles.playerName}>{player.name}</Text>
-                      <Text style={styles.playerStats}>
-                        ⚽ {player.goals} goals  •  🎯 {player.assists} assists
-                      </Text>
+                      <View style={styles.playerStatsRow}>
+                        <View style={styles.statItem}>
+                          <Ionicons name="football" size={14} color={COLORS.primary} />
+                          <Text style={styles.playerStats}>{player.goals} goals</Text>
+                        </View>
+                        <Text style={styles.statDivider}>•</Text>
+                        <View style={styles.statItem}>
+                          <Ionicons name="flash" size={14} color="#FFA500" />
+                          <Text style={styles.playerStats}>{player.assists} assists</Text>
+                        </View>
+                      </View>
                     </View>
                     <View style={styles.actionButtons}>
                       <TouchableOpacity
                         style={styles.iconButton}
                         onPress={() => handleEditPlayer(player)}
                       >
-                        <Text style={styles.iconButtonText}>✏️</Text>
+                        <Ionicons name="create-outline" size={18} color={COLORS.primary} />
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.iconButton}
                         onPress={() => handleDeletePlayer(player.id)}
                       >
-                        <Text style={styles.iconButtonText}>🗑️</Text>
+                        <Ionicons name="trash-outline" size={18} color={COLORS.error} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -339,22 +348,30 @@ const PlayersScreen = () => {
                     <View key={player.id} style={styles.playerCard}>
                       <View style={styles.playerInfo}>
                         <Text style={styles.playerName}>{player.name}</Text>
-                        <Text style={styles.playerStats}>
-                          ⚽ {player.goals} goals  •  🎯 {player.assists} assists
-                        </Text>
+                        <View style={styles.playerStatsRow}>
+                          <View style={styles.statItem}>
+                            <Ionicons name="football" size={14} color={COLORS.primary} />
+                            <Text style={styles.playerStats}>{player.goals} goals</Text>
+                          </View>
+                          <Text style={styles.statDivider}>•</Text>
+                          <View style={styles.statItem}>
+                            <Ionicons name="flash" size={14} color="#FFA500" />
+                            <Text style={styles.playerStats}>{player.assists} assists</Text>
+                          </View>
+                        </View>
                       </View>
                       <View style={styles.actionButtons}>
                         <TouchableOpacity
                           style={styles.iconButton}
                           onPress={() => handleEditPlayer(player)}
                         >
-                          <Text style={styles.iconButtonText}>✏️</Text>
+                          <Ionicons name="create-outline" size={18} color={COLORS.primary} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.iconButton}
                           onPress={() => handleDeletePlayer(player.id)}
                         >
-                          <Text style={styles.iconButtonText}>🗑️</Text>
+                          <Ionicons name="trash-outline" size={18} color={COLORS.error} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -644,6 +661,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
   },
+  playerStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statDivider: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
   actionButtons: {
     flexDirection: 'row',
   },
@@ -736,15 +767,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   cancelButton: {
-    backgroundColor: COLORS.gray[200],
+    backgroundColor: COLORS.warning,
   },
   cancelButtonText: {
-    color: COLORS.text,
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
   saveButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.success,
   },
   saveButtonText: {
     color: '#fff',

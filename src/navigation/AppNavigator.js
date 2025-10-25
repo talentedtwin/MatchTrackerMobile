@@ -1,26 +1,24 @@
-import React from 'react';
-import { Text } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { Ionicons } from '@expo/vector-icons';
+import { setClerkTokenGetter } from '../services/api';
 import HomeScreen from '../screens/HomeScreen';
 import PlayersScreen from '../screens/PlayersScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import StatsScreen from '../screens/StatsScreen';
 import MatchDetailsScreen from '../screens/MatchDetailsScreen';
+import EditMatchScreen from '../screens/EditMatchScreen';
+import AddMatchScreen from '../screens/AddMatchScreen';
+import SignInScreen from '../screens/SignInScreen';
+import SignUpScreen from '../screens/SignUpScreen';
 import { COLORS } from '../config/constants';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
-
-// Simple tab icon component
-const TabIcon = ({ icon, size, color }) => {
-  return (
-    <Text style={{ fontSize: size, opacity: color === COLORS.primary ? 1 : 0.5 }}>
-      {icon}
-    </Text>
-  );
-};
 
 // Bottom Tab Navigator for main screens
 const TabNavigator = () => {
@@ -53,7 +51,7 @@ const TabNavigator = () => {
           title: 'Dashboard',
           tabBarLabel: 'Home',
           tabBarIcon: ({ color, size }) => (
-            <TabIcon icon="🏠" size={size} color={color} />
+            <Ionicons name="home" size={size} color={color} />
           ),
         }}
       />
@@ -64,7 +62,7 @@ const TabNavigator = () => {
           title: 'Players & Teams',
           tabBarLabel: 'Players',
           tabBarIcon: ({ color, size }) => (
-            <TabIcon icon="👥" size={size} color={color} />
+            <Ionicons name="people" size={size} color={color} />
           ),
         }}
       />
@@ -75,7 +73,7 @@ const TabNavigator = () => {
           title: 'Match History',
           tabBarLabel: 'History',
           tabBarIcon: ({ color, size }) => (
-            <TabIcon icon="📋" size={size} color={color} />
+            <Ionicons name="list" size={size} color={color} />
           ),
         }}
       />
@@ -86,7 +84,7 @@ const TabNavigator = () => {
           title: 'Statistics',
           tabBarLabel: 'Stats',
           tabBarIcon: ({ color, size }) => (
-            <TabIcon icon="📊" size={size} color={color} />
+            <Ionicons name="bar-chart" size={size} color={color} />
           ),
         }}
       />
@@ -95,10 +93,27 @@ const TabNavigator = () => {
 };
 
 const AppNavigator = () => {
+  const { isSignedIn, isLoaded, getToken } = useAuth();
+
+  // Set up the Clerk token getter for API calls
+  useEffect(() => {
+    setClerkTokenGetter(getToken);
+  }, [getToken]);
+
+  // Show loading screen while Clerk initializes
+  if (!isLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.logo}>⚽</Text>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>MatchTracker</Text>
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Main"
         screenOptions={{
           headerStyle: {
             backgroundColor: COLORS.primary,
@@ -109,19 +124,67 @@ const AppNavigator = () => {
           },
         }}
       >
-        <Stack.Screen 
-          name="Main" 
-          component={TabNavigator}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="MatchDetails"
-          component={MatchDetailsScreen}
-          options={{ title: 'Match Details' }}
-        />
+        {!isSignedIn ? (
+          // Auth Stack - Show when not logged in
+          <>
+            <Stack.Screen 
+              name="SignIn" 
+              component={SignInScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="SignUp" 
+              component={SignUpScreen}
+              options={{ headerShown: false }}
+            />
+          </>
+        ) : (
+          // App Stack - Show when logged in
+          <>
+            <Stack.Screen 
+              name="Main" 
+              component={TabNavigator}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="MatchDetails"
+              component={MatchDetailsScreen}
+              options={{ title: 'Match Details' }}
+            />
+            <Stack.Screen
+              name="EditMatch"
+              component={EditMatchScreen}
+              options={{ title: 'Edit Match' }}
+            />
+            <Stack.Screen
+              name="AddMatch"
+              component={AddMatchScreen}
+              options={{ title: 'Add Match' }}
+            />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+  },
+  logo: {
+    fontSize: 80,
+    marginBottom: 20,
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+});
 
 export default AppNavigator;

@@ -2,8 +2,8 @@
  * Authentication middleware
  * Uses Clerk for authentication in Next.js API routes
  */
-const { auth } = require('@clerk/nextjs/server');
-const UserService = require('../lib/userService');
+import { clerkClient, getAuth } from '@clerk/nextjs/server';
+import UserService from '../lib/userService.js';
 
 /**
  * Wrapper for API routes that require authentication
@@ -13,8 +13,8 @@ const UserService = require('../lib/userService');
 function withAuth(handler) {
   return async (req, res) => {
     try {
-      // Get authentication from Clerk
-      const { userId } = auth();
+      // Get authentication from Clerk (Pages Router version)
+      const { userId } = getAuth(req);
 
       if (!userId) {
         return res.status(401).json({
@@ -79,11 +79,12 @@ export function errorHandler(handler) {
 
 /**
  * Get authenticated user ID from Clerk
+ * @param {Object} req - Request object
  * @returns {string|null} - User ID or null if not authenticated
  */
-async function getAuthUserId() {
+export function getAuthUserId(req) {
   try {
-    const { userId } = auth();
+    const { userId } = getAuth(req);
     return userId;
   } catch (error) {
     console.error('Error getting auth user ID:', error);
@@ -94,10 +95,11 @@ async function getAuthUserId() {
 /**
  * Require authentication and return user ID
  * Throws error if not authenticated
+ * @param {Object} req - Request object
  * @returns {Promise<string>} - User ID
  */
-async function requireAuth() {
-  const { userId } = auth();
+export async function requireAuth(req) {
+  const { userId } = getAuth(req);
 
   if (!userId) {
     throw new Error('Authentication required');
@@ -109,11 +111,5 @@ async function requireAuth() {
   return userId;
 }
 
-module.exports = {
-  withAuth,
-  authMiddleware,
-  corsMiddleware,
-  errorHandler,
-  getAuthUserId,
-  requireAuth,
-};
+// Default export
+export default withAuth;

@@ -6,7 +6,8 @@ import useApi from './useApi';
  * Hook for managing players
  */
 export const usePlayers = () => {
-  const { data: players = [], loading, error, refetch } = useApi(playerApi.getAll);
+  const { data, loading, error, refetch } = useApi(playerApi.getAll);
+  const players = data?.players || [];
 
   const addPlayer = useCallback(async (playerData) => {
     try {
@@ -52,7 +53,8 @@ export const usePlayers = () => {
  * Hook for managing teams
  */
 export const useTeams = () => {
-  const { data: teams = [], loading, error, refetch } = useApi(teamApi.getAll);
+  const { data, loading, error, refetch } = useApi(teamApi.getAll);
+  const teams = data?.teams || [];
 
   const addTeam = useCallback(async (teamData) => {
     try {
@@ -98,7 +100,8 @@ export const useTeams = () => {
  * Hook for managing matches
  */
 export const useMatches = () => {
-  const { data: matches = [], loading, error, refetch } = useApi(matchApi.getAll);
+  const { data, loading, error, refetch } = useApi(matchApi.getAll);
+  const matches = data?.matches || [];
 
   const addMatch = useCallback(async (matchData) => {
     try {

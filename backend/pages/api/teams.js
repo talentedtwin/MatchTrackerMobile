@@ -3,16 +3,16 @@
  * GET /api/teams - Get all teams for authenticated user
  * POST /api/teams - Create a new team
  */
-const { requireAuth } = require('../../middleware/auth');
-const { withDatabaseUserContext } = require('../../lib/db-utils');
-const { getPrisma } = require('../../lib/prisma');
-const EncryptionService = require('../../lib/encryption');
-const UserService = require('../../lib/userService');
+import { requireAuth  } from '../../middleware/auth.js';
+import { withDatabaseUserContext  } from '../../lib/db-utils.js';
+import { getPrisma  } from '../../lib/prisma.js';
+import EncryptionService from '../../lib/encryption.js';
+import UserService from '../../lib/userService.js';
 
 async function handler(req, res) {
   try {
     // Get authenticated user
-    const userId = await requireAuth();
+    const userId = await requireAuth(req);
 
     if (req.method === 'GET') {
       const prisma = getPrisma();
@@ -129,4 +129,4 @@ async function handler(req, res) {
   }
 }
 
-module.exports = handler;
+export default handler;
