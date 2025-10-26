@@ -20,12 +20,17 @@ export async function registerForPushNotificationsAsync() {
   let token;
 
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#2563eb',
-    });
+    try {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#2563eb',
+      });
+    } catch (error) {
+      console.log('Could not set notification channel:', error.message);
+      // Continue - this is not critical
+    }
   }
 
   if (Device.isDevice) {
@@ -38,23 +43,32 @@ export async function registerForPushNotificationsAsync() {
     }
     
     if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
+      console.log('Push notification permission not granted');
       return null;
     }
     
     try {
       // Get the Expo push token
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      
+      if (!projectId) {
+        console.log('No EAS project ID found - push notifications disabled');
+        return null;
+      }
+      
       token = (await Notifications.getExpoPushTokenAsync({
-        projectId: Constants.expoConfig?.extra?.eas?.projectId || 'your-project-id',
+        projectId,
       })).data;
       
       console.log('Expo Push Token:', token);
     } catch (error) {
-      console.error('Error getting push token:', error);
+      console.log('Push notifications not available:', error.message);
+      // Don't show the full error to avoid confusion
+      // Common causes: Firebase not configured, simulator/emulator, network issues
       return null;
     }
   } else {
-    console.log('Must use physical device for Push Notifications');
+    console.log('Push notifications require a physical device');
   }
 
   return token;
@@ -71,6 +85,7 @@ export async function savePushToken(token) {
     console.log('Push token saved to backend');
   } catch (error) {
     console.error('Error saving push token:', error);
+    // Don't throw - this shouldn't break the app if it fails
   }
 }
 
@@ -79,11 +94,17 @@ export async function savePushToken(token) {
  * Call this when the user signs in
  */
 export async function initializeNotifications() {
-  const token = await registerForPushNotificationsAsync();
-  if (token) {
-    await savePushToken(token);
+  try {
+    const token = await registerForPushNotificationsAsync();
+    if (token) {
+      await savePushToken(token);
+    }
+    return token;
+  } catch (error) {
+    console.error('Error initializing notifications:', error);
+    // Don't throw - notification failures shouldn't break the app
+    return null;
   }
-  return token;
 }
 
 /**
@@ -113,10 +134,18 @@ export function addNotificationListeners(onNotificationReceived, onNotificationR
  * Remove notification listeners
  */
 export function removeNotificationListeners(listeners) {
-  if (listeners.notificationListener) {
-    Notifications.removeNotificationSubscription(listeners.notificationListener);
+  if (listeners?.notificationListener) {
+    try {
+      listeners.notificationListener.remove();
+    } catch (error) {
+      console.log('Error removing notification listener:', error.message);
+    }
   }
-  if (listeners.responseListener) {
-    Notifications.removeNotificationSubscription(listeners.responseListener);
+  if (listeners?.responseListener) {
+    try {
+      listeners.responseListener.remove();
+    } catch (error) {
+      console.log('Error removing response listener:', error.message);
+    }
   }
 }

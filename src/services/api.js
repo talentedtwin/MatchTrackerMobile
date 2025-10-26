@@ -21,6 +21,13 @@ const apiClient = axios.create({
 // Request interceptor
 apiClient.interceptors.request.use(
   async (config) => {
+    // Log the request for debugging
+    console.log('API Request:', {
+      method: config.method?.toUpperCase(),
+      url: config.baseURL + config.url,
+      hasAuth: !!config.headers.Authorization
+    });
+    
     // Add Clerk auth token if available
     try {
       if (getClerkToken) {
@@ -44,7 +51,20 @@ apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
     // Handle errors globally
-    console.error('API Error:', error.response?.data || error.message);
+    if (error.response) {
+      // Server responded with error status
+      console.error('API Error:', error.response.status, error.response.data);
+    } else if (error.request) {
+      // Request was made but no response received
+      console.error('Network Error - No response from server:', {
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        method: error.config?.method
+      });
+    } else {
+      // Something else happened
+      console.error('API Error:', error.message);
+    }
     
     // Handle authentication errors
     if (error.response?.status === 401) {

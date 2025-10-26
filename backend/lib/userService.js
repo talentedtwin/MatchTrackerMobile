@@ -132,6 +132,11 @@ class UserService {
 
       return user;
     } catch (error) {
+      // If column doesn't exist yet, log warning but don't crash
+      if (error.code === 'P2010' || error.message?.includes('pushToken')) {
+        console.warn('pushToken column does not exist yet - run migrations');
+        return null;
+      }
       console.error('Error updating push token:', error);
       throw error;
     }
