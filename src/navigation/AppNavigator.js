@@ -18,6 +18,7 @@ import StatsScreen from '../screens/StatsScreen';
 import MatchDetailsScreen from '../screens/MatchDetailsScreen';
 import EditMatchScreen from '../screens/EditMatchScreen';
 import AddMatchScreen from '../screens/AddMatchScreen';
+import AddTeamScreen from '../screens/AddTeamScreen';
 import SignInScreen from '../screens/SignInScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import { COLORS } from '../config/constants';
@@ -197,6 +198,11 @@ const AppNavigator = () => {
               name="AddMatch"
               component={AddMatchScreen}
               options={{ title: 'Add Match' }}
+            />
+            <Stack.Screen
+              name="AddTeam"
+              component={AddTeamScreen}
+              options={{ title: 'Add Team' }}
             />
           </>
         )}

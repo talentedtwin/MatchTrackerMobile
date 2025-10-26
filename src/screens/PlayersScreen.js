@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePlayers, useTeams } from '../hooks/useResources';
 import { COLORS } from '../config/constants';
 
-const PlayersScreen = () => {
+const PlayersScreen = ({ navigation }) => {
   const { players, loading: playersLoading, addPlayer, updatePlayer, removePlayer, refetch: refetchPlayers } = usePlayers();
   const { teams, loading: teamsLoading, addTeam, updateTeam, removeTeam, refetch: refetchTeams } = useTeams();
   
@@ -220,11 +220,7 @@ const PlayersScreen = () => {
               <Text style={styles.sectionTitle}>Your Teams</Text>
               <TouchableOpacity
                 style={styles.addButton}
-                onPress={() => {
-                  setEditingTeam(null);
-                  setTeamName('');
-                  setTeamModalVisible(true);
-                }}
+                onPress={() => navigation.navigate('AddTeam')}
               >
                 <Text style={styles.addButtonText}>+ Add Team</Text>
               </TouchableOpacity>
@@ -250,7 +246,7 @@ const PlayersScreen = () => {
                       <View style={styles.actionButtons}>
                         <TouchableOpacity
                           style={styles.iconButton}
-                          onPress={() => handleEditTeam(team)}
+                          onPress={() => navigation.navigate('AddTeam', { team })}
                         >
                           <Ionicons name="create-outline" size={18} color={COLORS.primary} />
                         </TouchableOpacity>

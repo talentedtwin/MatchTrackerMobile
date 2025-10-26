@@ -5,5 +5,6 @@ export { default as StatsScreen } from './StatsScreen';
 export { default as MatchDetailsScreen } from './MatchDetailsScreen';
 export { default as EditMatchScreen } from './EditMatchScreen';
 export { default as AddMatchScreen } from './AddMatchScreen';
+export { default as AddTeamScreen } from './AddTeamScreen';
 export { default as SignInScreen } from './SignInScreen';
 export { default as SignUpScreen } from './SignUpScreen';
