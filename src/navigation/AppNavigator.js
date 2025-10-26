@@ -111,23 +111,30 @@ const AppNavigator = () => {
   // Initialize push notifications when user signs in
   useEffect(() => {
     if (isSignedIn) {
-      // Initialize notifications and get push token
-      initializeNotifications();
+      // Initialize notifications and get push token (don't await - non-blocking)
+      initializeNotifications().catch(error => {
+        console.error('Failed to initialize notifications:', error);
+        // Continue app execution even if notifications fail
+      });
 
       // Add notification listeners
-      notificationListeners.current = addNotificationListeners(
-        // Handle notification received (app in foreground)
-        (notification) => {
-          console.log('Notification received:', notification);
-        },
-        // Handle notification tapped (navigate to match details)
-        (response) => {
-          const matchId = response.notification.request.content.data?.matchId;
-          if (matchId && navigationRef.current) {
-            navigationRef.current.navigate('MatchDetails', { matchId });
+      try {
+        notificationListeners.current = addNotificationListeners(
+          // Handle notification received (app in foreground)
+          (notification) => {
+            console.log('Notification received:', notification);
+          },
+          // Handle notification tapped (navigate to match details)
+          (response) => {
+            const matchId = response.notification.request.content.data?.matchId;
+            if (matchId && navigationRef.current) {
+              navigationRef.current.navigate('MatchDetails', { matchId });
+            }
           }
-        }
-      );
+        );
+      } catch (error) {
+        console.error('Failed to add notification listeners:', error);
+      }
 
       // Cleanup listeners on unmount
       return () => {

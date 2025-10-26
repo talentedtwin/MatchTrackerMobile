@@ -9,15 +9,24 @@ function MyApp({ Component, pageProps }) {
   useEffect(() => {
     // Start the notification scheduler when the app loads
     if (!schedulerTask) {
-      schedulerTask = startNotificationScheduler();
-      console.log('Match notification scheduler started');
+      try {
+        schedulerTask = startNotificationScheduler();
+        console.log('Match notification scheduler started');
+      } catch (error) {
+        console.error('Failed to start notification scheduler:', error);
+        // Continue app execution even if scheduler fails
+      }
     }
 
     // Cleanup on unmount (though this rarely happens in Next.js)
     return () => {
       if (schedulerTask) {
-        schedulerTask.stop();
-        schedulerTask = null;
+        try {
+          schedulerTask.stop();
+          schedulerTask = null;
+        } catch (error) {
+          console.error('Error stopping scheduler:', error);
+        }
       }
     };
   }, []);

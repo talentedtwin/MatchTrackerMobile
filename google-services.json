@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "619378125079",
+    "project_id": "matchracker",
+    "storage_bucket": "matchracker.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:619378125079:android:7b57b1af36b7947229af52",
+        "android_client_info": {
+          "package_name": "com.talentedtwin.matchtrackerMobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAePb_4xKZeXZK4Y0VT3d3LrYan0zpIq-E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,19 @@ import { COLORS, FONTS } from '../config/constants';
 // Required for OAuth on mobile
 WebBrowser.maybeCompleteAuthSession();
 
+// Warm up the browser for faster OAuth on iOS
+const useWarmUpBrowser = () => {
+  useEffect(() => {
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+};
+
 const SignInScreen = ({ navigation }) => {
+  useWarmUpBrowser(); // Add browser warm up
+  
   const { signIn, setActive, isLoaded } = useSignIn();
   const { startOAuthFlow: startGoogleOAuth } = useOAuth({ strategy: 'oauth_google' });
   const { startOAuthFlow: startAppleOAuth } = useOAuth({ strategy: 'oauth_apple' });

@@ -279,10 +279,94 @@ These should return the OAuth authorization URL from Clerk.
 7. 🎯 Implement OAuth mobile flow
 8. 🚀 Deploy to production
 
+## EAS Development Build Authentication Fix
+
+### Problem with EAS Builds
+
+Clerk OAuth authentication doesn't work in EAS development builds without proper configuration.
+
+### ✅ Solution Applied
+
+#### 1. Added Custom URL Scheme
+Updated `app.json` with:
+```json
+{
+  "expo": {
+    "scheme": "matchtrackermobile"
+  }
+}
+```
+
+#### 2. Added Browser Warm-up
+Both `SignInScreen.js` and `SignUpScreen.js` now include:
+```javascript
+const useWarmUpBrowser = () => {
+  useEffect(() => {
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+};
+```
+
+### 🔧 Critical: Configure Clerk Dashboard
+
+**YOU MUST DO THIS FOR OAUTH TO WORK:**
+
+1. Go to [Clerk Dashboard](https://dashboard.clerk.com/)
+2. Select your MatchTracker application
+3. Navigate to: **Settings → Social Connections** (or **SSO Connections**)
+4. For EACH OAuth provider (Google, Apple, Facebook):
+   - Click on the provider
+   - Add this redirect URL:
+   ```
+   matchtrackermobile://oauth-native-callback
+   ```
+   - Save changes
+
+### 📱 Rebuild Required
+
+After adding the redirect URLs to Clerk, rebuild your app:
+
+```bash
+# For iOS
+eas build --profile development --platform ios
+
+# For Android
+eas build --profile development --platform android
+```
+
+**Why rebuild?** The app needs the new `scheme` configuration to handle OAuth redirects.
+
+### Testing Checklist
+
+- [ ] Redirect URL added to Clerk dashboard for each OAuth provider
+- [ ] App rebuilt with `eas build`
+- [ ] New build installed on device
+- [ ] Email/password login works
+- [ ] OAuth (Google/Apple/Facebook) login works
+
+### Troubleshooting OAuth Issues
+
+**"Invalid redirect URL" error:**
+- Check Clerk dashboard has `matchtrackermobile://oauth-native-callback`
+- Verify no typos in the URL
+
+**Browser opens but doesn't redirect back:**
+- Rebuild the app with the new scheme configuration
+- Install the fresh build on your device
+
+**Works in Expo Go but not in dev build:**
+- Expo Go uses `exp://` scheme
+- Dev builds use your custom scheme `matchtrackermobile://`
+- Both need different redirect URLs in Clerk
+
 ## Files Modified
 
-- `src/screens/SignInScreen.js` - Connected to backend API
-- `src/screens/SignUpScreen.js` - Connected to backend API
+- `app.json` - Added `scheme: "matchtrackermobile"`
+- `src/screens/SignInScreen.js` - Added `useWarmUpBrowser` hook, connected to backend API
+- `src/screens/SignUpScreen.js` - Added `useWarmUpBrowser` hook, connected to backend API
 - `backend/pages/api/auth/sign-in.js` - New sign-in endpoint
 - `backend/pages/api/auth/sign-up.js` - New sign-up endpoint
 - `backend/middleware.js` - Added auth routes to public routes
@@ -294,3 +378,5 @@ These should return the OAuth authorization URL from Clerk.
 - [Clerk React Native Guide](https://clerk.com/docs/quickstarts/react-native)
 - [Expo AuthSession](https://docs.expo.dev/guides/authentication/)
 - [Clerk OAuth Setup](https://clerk.com/docs/authentication/social-connections/oauth)
+- [EAS Build Guide](https://docs.expo.dev/develop/development-builds/create-a-build/)
+
