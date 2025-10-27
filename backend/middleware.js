@@ -10,6 +10,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/auth/sign-up(.*)",
   "/api/auth/clerk-oauth(.*)",
   "/api/auth/session(.*)",
+  "/api/cron/check-matches(.*)",
 ]);
 
 // Middleware to protect routes

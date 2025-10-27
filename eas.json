@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.1.167:3000/api",
+        "EXPO_PUBLIC_API_URL": "https://matchtracker-app.vercel.app/api",
         "EXPO_PUBLIC_APP_NAME": "MatchTracker",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_dW5pdGVkLWxpb25maXNoLTkwLmNsZXJrLmFjY291bnRzLmRldiQ"
       }
@@ -16,7 +16,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.1.167:3000/api",
+        "EXPO_PUBLIC_API_URL": "https://matchtracker-app.vercel.app/api",
         "EXPO_PUBLIC_APP_NAME": "MatchTracker",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_dW5pdGVkLWxpb25maXNoLTkwLmNsZXJrLmFjY291bnRzLmRldiQ"
       }
@@ -24,7 +24,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://your-production-api.com/api",
+        "EXPO_PUBLIC_API_URL": "https://matchtracker-app.vercel.app/api",
         "EXPO_PUBLIC_APP_NAME": "MatchTracker",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_dW5pdGVkLWxpb25maXNoLTkwLmNsZXJrLmFjY291bnRzLmRldiQ"
       }
