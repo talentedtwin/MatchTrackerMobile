@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMatches, usePlayers } from '../hooks/useResources';
@@ -148,7 +149,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
           text: 'Finish',
           onPress: async () => {
             try {
-              await updateMatch(matchId, { played: true });
+              await updateMatch(matchId, { isFinished: true });
               Alert.alert('Success', 'Match marked as played');
             } catch (error) {
               Alert.alert('Error', error.message || 'Failed to finish match');
@@ -157,6 +158,57 @@ const MatchDetailsScreen = ({ route, navigation }) => {
         },
       ]
     );
+  };
+
+  const handleShareMatch = async () => {
+    if (!match) return;
+
+    try {
+      // Build share message
+      let message = `🏆 Match Details\n\n`;
+      message += `📅 ${formatDateTime(match.date)}\n`;
+      message += `📍 ${match.venue === VENUE_TYPES.HOME ? 'Home' : 'Away'}\n`;
+      message += `${match.matchType === MATCH_TYPES.CUP ? '🏆 Cup' : '⚽ League'}\n\n`;
+
+      message += `Opponent: ${match.opponent}\n`;
+
+      if (match.isFinished) {
+        const result = getMatchResult(match.goalsFor, match.goalsAgainst);
+        const resultEmoji = result === 'win' ? '🎉' : result === 'loss' ? '😔' : '🤝';
+        message += `\n${resultEmoji} Result: ${result.toUpperCase()}\n`;
+        message += `Score: ${match.goalsFor} - ${match.goalsAgainst}\n`;
+        
+        // Add player stats if available
+        if (playersWithStats.length > 0) {
+          const scorers = playersWithStats.filter(p => p.goals > 0 || p.assists > 0);
+          if (scorers.length > 0) {
+            message += `\n⭐ Player Statistics:\n`;
+            scorers.forEach(player => {
+              const stats = [];
+              if (player.goals > 0) stats.push(`${player.goals} goal${player.goals > 1 ? 's' : ''}`);
+              if (player.assists > 0) stats.push(`${player.assists} assist${player.assists > 1 ? 's' : ''}`);
+              message += `${player.name}: ${stats.join(', ')}\n`;
+            });
+          }
+        }
+      } else {
+        message += `\n⏰ Scheduled Match\n`;
+      }
+      
+      if (match.notes) {
+        message += `\n📝 Notes: ${match.notes}\n`;
+      }
+
+      message += `\nShared via MatchTracker App`;
+
+      await Share.share({
+        message: message,
+        title: `Match vs ${match.opponent}`,
+      });
+    } catch (error) {
+      console.error('Error sharing match:', error);
+      Alert.alert('Error', 'Failed to share match details');
+    }
   };
 
   if (loading || !match) {
@@ -168,11 +220,11 @@ const MatchDetailsScreen = ({ route, navigation }) => {
     );
   }
 
-  const result = match.played ? getMatchResult(match.goalsFor, match.goalsAgainst) : null;
+  const result = match.isFinished ? getMatchResult(match.goalsFor, match.goalsAgainst) : null;
   const resultColor = result ? getResultColor(result) : null;
 
   // Get player stats for this match
-  const matchPlayerStats = match.playerMatchStats || [];
+  const matchPlayerStats = match.playerStats || [];
   const playersWithStats = matchPlayerStats
     .map(stat => {
       const player = getPlayerById(players, stat.playerId);
@@ -222,7 +274,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
             <Text style={styles.teamName}>Team: {match.team.name}</Text>
           )}
 
-          {match.played ? (
+          {match.isFinished ? (
             <View style={styles.scoreSection}>
               <View style={[styles.resultBadge, { backgroundColor: resultColor }]}>
                 <Text style={styles.resultText}>{result.toUpperCase()}</Text>
@@ -250,7 +302,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
         )}
 
         {/* Player Statistics */}
-        {match.played && playersWithStats.length > 0 && (
+        {match.isFinished && playersWithStats.length > 0 && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Player Statistics</Text>
             
@@ -319,26 +371,50 @@ const MatchDetailsScreen = ({ route, navigation }) => {
 
         {/* Actions */}
         <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.editButton]}
-            onPress={handleEditMatch}
-          >
-            <View style={styles.actionButtonContent}>
-              <Ionicons name="create-outline" size={18} color="#fff" />
-              <Text style={styles.actionButtonText}>Edit Match</Text>
+          {match.isFinished ? (
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.editButton, styles.halfWidth]}
+                onPress={handleEditMatch}
+              >
+                <View style={styles.actionButtonContent}>
+                  <Ionicons name="create-outline" size={18} color="#fff" />
+                  <Text style={styles.actionButtonText}>Edit Match</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.actionButton, styles.shareButton, styles.halfWidth]}
+                onPress={handleShareMatch}
+              >
+                <View style={styles.actionButtonContent}>
+                  <Ionicons name="share-outline" size={18} color="#fff" />
+                  <Text style={styles.actionButtonText}>Share Match</Text>
+                </View>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-          
-          {!match.played && (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.finishButton]}
-              onPress={handleFinishMatch}
-            >
-              <View style={styles.actionButtonContent}>
-                <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                <Text style={[styles.actionButtonText, { color: '#fff' }]}>Finish Match</Text>
-              </View>
-            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.editButton]}
+                onPress={handleEditMatch}
+              >
+                <View style={styles.actionButtonContent}>
+                  <Ionicons name="create-outline" size={18} color="#fff" />
+                  <Text style={styles.actionButtonText}>Edit Match</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.actionButton, styles.finishButton]}
+                onPress={handleFinishMatch}
+              >
+                <View style={styles.actionButtonContent}>
+                  <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                  <Text style={[styles.actionButtonText, { color: '#fff' }]}>Finish Match</Text>
+                </View>
+              </TouchableOpacity>
+            </>
           )}
           
           <TouchableOpacity
@@ -608,6 +684,8 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   scoreSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 10,
   },
@@ -615,7 +693,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 6,
     borderRadius: 12,
-    marginBottom: 10,
   },
   resultText: {
     fontSize: 14,
@@ -727,6 +804,10 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 20,
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   actionButton: {
     padding: 15,
     borderRadius: 12,
@@ -738,9 +819,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  halfWidth: {
+    flex: 1,
+  },
   editButton: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
+  },
+  shareButton: {
+    backgroundColor: COLORS.warning,
+    borderColor: COLORS.warning,
   },
   finishButton: {
     backgroundColor: COLORS.success,
