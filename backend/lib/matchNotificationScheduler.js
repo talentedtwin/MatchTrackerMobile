@@ -22,7 +22,6 @@ async function checkUpcomingMatches() {
           lte: elevenMinutesFromNow,
         },
         isFinished: false,
-        isDeleted: false,
       },
       include: {
         user: {

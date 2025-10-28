@@ -525,6 +525,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     padding: 15,
     borderRadius: 12,
+    marginTop: 10,
     alignItems: 'center',
   },
   addMatchButtonText: {
