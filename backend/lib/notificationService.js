@@ -74,9 +74,22 @@ export async function sendMatchReminderNotification(pushToken, match) {
     data: {
       matchId: match.id,
       type: 'match_reminder',
+      screen: 'MatchDetails',
     },
     priority: 'high',
     channelId: 'default',
+    // Android specific
+    android: {
+      channelId: 'default',
+      priority: 'max',
+      sound: true,
+      vibrate: [0, 250, 250, 250],
+    },
+    // iOS specific
+    ios: {
+      sound: true,
+      badge: 1,
+    },
   };
 
   try {

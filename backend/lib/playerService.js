@@ -1,6 +1,6 @@
-import { getPrisma } from './prisma.js';
-import { withDatabaseUserContext } from './db-utils.js';
-import EncryptionService from './encryption.js';
+import { getPrisma } from "./prisma.js";
+import { withDatabaseUserContext } from "./db-utils.js";
+import EncryptionService from "./encryption.js";
 
 /**
  * Service class for player operations
@@ -33,10 +33,12 @@ class PlayerService {
       return {
         ...player,
         name: EncryptionService.decrypt(player.name),
-        team: player.team ? {
-          ...player.team,
-          name: EncryptionService.decrypt(player.team.name),
-        } : null,
+        team: player.team
+          ? {
+              ...player.team,
+              name: EncryptionService.decrypt(player.team.name),
+            }
+          : null,
       };
     });
   }
@@ -57,32 +59,50 @@ class PlayerService {
         include: {
           team: includeTeam,
           matchStats: {
-            select: {
-              goals: true,
-              assists: true,
+            include: {
+              match: {
+                select: {
+                  teamId: true,
+                },
+              },
             },
           },
         },
         orderBy: {
-          createdAt: 'desc',
+          createdAt: "desc",
         },
       });
 
       // Decrypt player names, calculate stats totals from matchStats
-      return players.map(player => {
-        // Calculate total goals and assists from all match stats
-        const totalGoals = player.matchStats.reduce((sum, stat) => sum + stat.goals, 0);
-        const totalAssists = player.matchStats.reduce((sum, stat) => sum + stat.assists, 0);
+      return players.map((player) => {
+        // Only count goals and assists from matches with the player's current team
+        // If player has no team, count all their stats
+        const relevantStats = player.teamId
+          ? player.matchStats.filter(
+              (stat) => stat.match.teamId === player.teamId
+            )
+          : player.matchStats;
+
+        const totalGoals = relevantStats.reduce(
+          (sum, stat) => sum + stat.goals,
+          0
+        );
+        const totalAssists = relevantStats.reduce(
+          (sum, stat) => sum + stat.assists,
+          0
+        );
 
         return {
           ...player,
           name: EncryptionService.decrypt(player.name),
-          goals: totalGoals, // Override with calculated total
-          assists: totalAssists, // Override with calculated total
-          team: player.team ? {
-            ...player.team,
-            name: EncryptionService.decrypt(player.team.name),
-          } : null,
+          goals: totalGoals, // Override with calculated total for current team only
+          assists: totalAssists, // Override with calculated total for current team only
+          team: player.team
+            ? {
+                ...player.team,
+                name: EncryptionService.decrypt(player.team.name),
+              }
+            : null,
           matchStats: undefined, // Remove matchStats from response to keep it clean
         };
       });
@@ -104,10 +124,16 @@ class PlayerService {
           team: true,
           matchStats: {
             include: {
-              match: true,
+              match: {
+                select: {
+                  teamId: true,
+                  date: true,
+                  opponent: true,
+                },
+              },
             },
             orderBy: {
-              id: 'desc',
+              id: "desc",
             },
           },
         },
@@ -117,14 +143,36 @@ class PlayerService {
         return null;
       }
 
+      // Filter stats to only include matches from the player's current team
+      const relevantStats = player.teamId
+        ? player.matchStats.filter(
+            (stat) => stat.match.teamId === player.teamId
+          )
+        : player.matchStats;
+
+      // Calculate team-specific totals
+      const totalGoals = relevantStats.reduce(
+        (sum, stat) => sum + stat.goals,
+        0
+      );
+      const totalAssists = relevantStats.reduce(
+        (sum, stat) => sum + stat.assists,
+        0
+      );
+
       // Decrypt
       return {
         ...player,
         name: EncryptionService.decrypt(player.name),
-        team: player.team ? {
-          ...player.team,
-          name: EncryptionService.decrypt(player.team.name),
-        } : null,
+        goals: totalGoals,
+        assists: totalAssists,
+        team: player.team
+          ? {
+              ...player.team,
+              name: EncryptionService.decrypt(player.team.name),
+            }
+          : null,
+        matchStats: relevantStats, // Only return stats for current team
       };
     });
   }
@@ -155,10 +203,12 @@ class PlayerService {
       return {
         ...player,
         name: EncryptionService.decrypt(player.name),
-        team: player.team ? {
-          ...player.team,
-          name: EncryptionService.decrypt(player.team.name),
-        } : null,
+        team: player.team
+          ? {
+              ...player.team,
+              name: EncryptionService.decrypt(player.team.name),
+            }
+          : null,
       };
     });
   }
@@ -219,10 +269,12 @@ class PlayerService {
       return {
         ...player,
         name: EncryptionService.decrypt(player.name),
-        team: player.team ? {
-          ...player.team,
-          name: EncryptionService.decrypt(player.team.name),
-        } : null,
+        team: player.team
+          ? {
+              ...player.team,
+              name: EncryptionService.decrypt(player.team.name),
+            }
+          : null,
       };
     });
   }
@@ -251,15 +303,31 @@ class PlayerService {
         return null;
       }
 
-      // Calculate stats
-      const totalMatches = player.matchStats.length;
-      const totalGoals = player.matchStats.reduce((sum, stat) => sum + stat.goals, 0);
-      const totalAssists = player.matchStats.reduce((sum, stat) => sum + stat.assists, 0);
-      const avgGoalsPerMatch = totalMatches > 0 ? (totalGoals / totalMatches).toFixed(2) : 0;
-      const avgAssistsPerMatch = totalMatches > 0 ? (totalAssists / totalMatches).toFixed(2) : 0;
+      // Filter stats to only include matches from the player's current team
+      // If player has no team, include all their stats
+      const relevantStats = player.teamId
+        ? player.matchStats.filter(
+            (stat) => stat.match.teamId === player.teamId
+          )
+        : player.matchStats;
 
-      // Get recent form (last 5 matches)
-      const recentMatches = player.matchStats
+      // Calculate stats from team-filtered matches only
+      const totalMatches = relevantStats.length;
+      const totalGoals = relevantStats.reduce(
+        (sum, stat) => sum + stat.goals,
+        0
+      );
+      const totalAssists = relevantStats.reduce(
+        (sum, stat) => sum + stat.assists,
+        0
+      );
+      const avgGoalsPerMatch =
+        totalMatches > 0 ? (totalGoals / totalMatches).toFixed(2) : 0;
+      const avgAssistsPerMatch =
+        totalMatches > 0 ? (totalAssists / totalMatches).toFixed(2) : 0;
+
+      // Get recent form (last 5 matches for current team only)
+      const recentMatches = relevantStats
         .sort((a, b) => new Date(b.match.date) - new Date(a.match.date))
         .slice(0, 5);
 
@@ -271,7 +339,7 @@ class PlayerService {
         totalAssists,
         avgGoalsPerMatch,
         avgAssistsPerMatch,
-        recentForm: recentMatches.map(stat => ({
+        recentForm: recentMatches.map((stat) => ({
           matchId: stat.matchId,
           date: stat.match.date,
           opponent: stat.match.opponent,
@@ -303,10 +371,12 @@ class PlayerService {
       return {
         ...player,
         name: EncryptionService.decrypt(player.name),
-        team: player.team ? {
-          ...player.team,
-          name: EncryptionService.decrypt(player.team.name),
-        } : null,
+        team: player.team
+          ? {
+              ...player.team,
+              name: EncryptionService.decrypt(player.team.name),
+            }
+          : null,
       };
     });
   }

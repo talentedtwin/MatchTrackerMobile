@@ -25,6 +25,8 @@ model User {
   matches            Match[]
   players            Player[]
   teams              Team[]
+  emailNotifications  Boolean @default(false)
+  pushNotifications  Boolean @default(false)
 
   @@index([isDeleted])
   @@map("users")
@@ -67,40 +69,51 @@ model Player {
 }
 
 model Match {
-  id                String            @id @default(cuid())
-  opponent          String
-  date              DateTime
-  goalsFor          Int               @default(0)
-  goalsAgainst      Int               @default(0)
-  isFinished        Boolean           @default(false)
-  matchType         String            @default("league")
-  notes             String?
-  selectedPlayerIds String[]          @default([])
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  userId            String
-  teamId            String?
-  venue             String            @default("home")
-  team              Team?             @relation(fields: [teamId], references: [id])
-  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  playerStats       PlayerMatchStat[]
+  id                   String            @id @default(cuid())
+  opponent             String
+  date                 DateTime
+  goalsFor             Int               @default(0)
+  goalsAgainst         Int               @default(0)
+  isFinished           Boolean           @default(false)
+  matchType            String            @default("league")
+  notes                String?
+  selectedPlayerIds    String[]          @default([])
+  notificationSent     Boolean           @default(false)
+  notificationSentAt   DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  userId               String
+  teamId               String?
+  venue                String            @default("home")
+  team                 Team?             @relation(fields: [teamId], references: [id])
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playerStats          PlayerMatchStat[]
 
   @@index([userId, isFinished])
   @@index([date])
+  @@index([userId, date, isFinished])
+  @@index([date, isFinished, notificationSent])
+  @@index([teamId, date])
+  @@index([teamId, isFinished])
   @@map("matches")
 }
 
 model PlayerMatchStat {
-  id       String @id @default(cuid())
-  goals    Int    @default(0)
-  assists  Int    @default(0)
-  playerId String
-  matchId  String
-  match    Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  id             String  @id @default(cuid())
+  goals          Int     @default(0)
+  assists        Int     @default(0)
+  minutesPlayed  Int     @default(0)
+  playingPeriods Json?
+  yellowCards    Int     @default(0)
+  redCard        Boolean @default(false)
+  playerId       String
+  matchId        String
+  match          Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player         Player  @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@unique([playerId, matchId])
   @@index([playerId])
   @@index([matchId])
+  @@index([matchId, playerId])
   @@map("player_match_stats")
 }

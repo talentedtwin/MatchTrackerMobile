@@ -12,12 +12,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { usePlayers } from '../hooks/useResources';
+import { usePlayers, useTeams } from '../hooks/useResources';
+import { useTeamContext } from '../contexts/TeamContext';
 import { matchApi } from '../services/api';
 import { COLORS, FONTS, MATCH_TYPES, VENUE_TYPES } from '../config/constants';
 
 const AddMatchScreen = ({ navigation }) => {
-  const { players, loading: playersLoading } = usePlayers();
+  const { selectedTeamId } = useTeamContext();
+  const { players, loading: playersLoading } = usePlayers(selectedTeamId);
+  const { teams, loading: teamsLoading } = useTeams();
   const [saving, setSaving] = useState(false);
   
   // Form state
@@ -149,6 +152,26 @@ const AddMatchScreen = ({ navigation }) => {
           }))
         : undefined;
 
+      // Determine teamId from selected players
+      // Find the most common teamId among selected players
+      let teamId = null;
+      if (formData.selectedPlayerIds.length > 0) {
+        const teamCounts = {};
+        formData.selectedPlayerIds.forEach(playerId => {
+          const player = players.find(p => p.id === playerId);
+          if (player?.teamId) {
+            teamCounts[player.teamId] = (teamCounts[player.teamId] || 0) + 1;
+          }
+        });
+        
+        // Get the teamId with the most players
+        if (Object.keys(teamCounts).length > 0) {
+          teamId = Object.keys(teamCounts).reduce((a, b) => 
+            teamCounts[a] > teamCounts[b] ? a : b
+          );
+        }
+      }
+
       await matchApi.create({
         opponent: formData.opponent.trim(),
         date: formData.date.toISOString(),
@@ -159,6 +182,7 @@ const AddMatchScreen = ({ navigation }) => {
         isFinished: formData.isFinished,
         goalsFor: formData.isFinished ? Number(formData.goalsFor) : 0,
         goalsAgainst: formData.isFinished ? Number(formData.goalsAgainst) : 0,
+        teamId: teamId || undefined,
         playerStats: playerStatsArray,
       });
 
@@ -312,6 +336,16 @@ const AddMatchScreen = ({ navigation }) => {
               <Ionicons name="trophy" size={16} color="#FFD700" />
               <Text style={styles.radioLabel}>Cup</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.radioOption}
+              onPress={() => setFormData(prev => ({ ...prev, matchType: 'friendly' }))}
+            >
+              <View style={[styles.radio, formData.matchType === 'friendly' && styles.radioSelected]}>
+                {formData.matchType === 'friendly' && <View style={styles.radioDot} />}
+              </View>
+              <Ionicons name="happy" size={16} color={COLORS.success} />
+              <Text style={styles.radioLabel}>Friendly</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -432,7 +466,10 @@ const AddMatchScreen = ({ navigation }) => {
                   style={styles.playerItem}
                   onPress={() => togglePlayerSelection(player.id)}
                 >
-                  <View style={styles.checkbox}>
+                  <View style={[
+                    styles.checkbox,
+                    formData.selectedPlayerIds.includes(player.id) && styles.checkboxSelected
+                  ]}>
                     {formData.selectedPlayerIds.includes(player.id) && (
                       <Ionicons name="checkmark" size={16} color="#fff" />
                     )}
@@ -704,6 +741,10 @@ const styles = StyleSheet.create({
     marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   checkmark: {
     color: COLORS.primary,

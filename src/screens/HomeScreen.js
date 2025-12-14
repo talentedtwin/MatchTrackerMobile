@@ -1,64 +1,100 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Image, ImageBackground } from 'react-native';
-import { useUser, useAuth } from '@clerk/clerk-expo';
-import { useFocusEffect } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import { useMatches, usePlayers } from '../hooks/useResources';
-import { formatDateTime } from '../utils/helpers';
-import { COLORS, FONTS } from '../config/constants';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+  Image,
+  ImageBackground,
+} from "react-native";
+import { useUser, useAuth } from "@clerk/clerk-expo";
+import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { useApi } from "../hooks/useApi";
+import { dashboardApi } from "../services/api";
+import { useTeamContext } from "../contexts/TeamContext";
+import TeamSelector from "../components/TeamSelector";
+import { formatDateTime } from "../utils/helpers";
+import { COLORS, FONTS } from "../config/constants";
 
 const HomeScreen = ({ navigation }) => {
   const { user } = useUser();
   const { signOut } = useAuth();
-  const { matches, loading: matchesLoading, refetch: refetchMatches } = useMatches();
-  const { players, loading: playersLoading } = usePlayers();
+  const { selectedTeamId, selectTeam } = useTeamContext();
   const [refreshing, setRefreshing] = useState(false);
+  const [hasAutoSelected, setHasAutoSelected] = useState(false);
 
-  // Refetch matches when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      refetchMatches();
-    }, [refetchMatches])
+  // Use single dashboard API call instead of multiple separate calls
+  const {
+    data: dashboardData,
+    loading,
+    refetch,
+  } = useApi(
+    () => dashboardApi.getHomeData(selectedTeamId),
+    true,
+    [selectedTeamId],
+    {
+      enableCache: true,
+      ttl: 2 * 60 * 1000, // 2 minutes cache for dashboard
+      persistCache: true,
+      cacheKey: `dashboard-${selectedTeamId}`,
+    }
   );
 
-  // Get scheduled matches (not yet started - in the future or no scores yet)
-  const scheduledMatches = matches?.filter(m => !m.isFinished) || [];
-  // Sort scheduled matches by date (soonest first)
-  const upcomingMatches = scheduledMatches
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(0, 3);
-  
-  const recentMatches = matches?.filter(m => m.isFinished).slice(0, 3) || [];
+  // Extract data from dashboard response
+  const teams = dashboardData?.teams || [];
+  const upcomingMatches = dashboardData?.upcomingMatches || [];
+  const recentMatches = dashboardData?.recentMatches || [];
+  const stats = dashboardData?.stats || {
+    totalMatches: 0,
+    totalPlayers: 0,
+    wins: 0,
+  };
+
+  // Refetch when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
+  // Auto-select first team if none selected and user has teams (only once)
+  useEffect(() => {
+    if (!hasAutoSelected && !selectedTeamId && teams.length > 0 && !loading) {
+      selectTeam(teams[0].id);
+      setHasAutoSelected(true);
+    }
+  }, [teams.length, selectedTeamId, loading, hasAutoSelected, selectTeam]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await refetchMatches();
+    await refetch();
     setRefreshing(false);
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut();
-            } catch (error) {
-              console.error('Logout error:', error);
-              Alert.alert('Error', 'Failed to sign out');
-            }
-          },
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut();
+          } catch (error) {
+            console.error("Logout error:", error);
+            Alert.alert("Error", "Failed to sign out");
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  if (matchesLoading || playersLoading) {
+  if (loading && !dashboardData) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -66,6 +102,8 @@ const HomeScreen = ({ navigation }) => {
       </View>
     );
   }
+
+  const selectedTeam = teams.find((t) => t.id === selectedTeamId);
 
   return (
     <ScrollView
@@ -77,7 +115,7 @@ const HomeScreen = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <ImageBackground
-          source={require('../../assets/header-bg.png')}
+          source={require("../../assets/header-bg.png")}
           style={styles.headerBackground}
           resizeMode="cover"
         >
@@ -85,18 +123,25 @@ const HomeScreen = ({ navigation }) => {
             <View style={styles.headerContent}>
               <View style={styles.titleContainer}>
                 <View style={styles.titleRow}>
-                  <Image 
-                    source={require('../../assets/logo.png')} 
+                  <Image
+                    source={require("../../assets/logo.png")}
                     style={styles.logo}
                     resizeMode="contain"
                   />
                   <Text style={styles.title}>MatchTracker</Text>
                 </View>
                 <Text style={styles.subtitle}>
-                  Welcome back, {user?.firstName || user?.emailAddresses?.[0]?.emailAddress || 'Player'}!
+                  Welcome back,{" "}
+                  {user?.firstName ||
+                    user?.emailAddresses?.[0]?.emailAddress ||
+                    "Player"}
+                  !
                 </Text>
               </View>
-              <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={handleLogout}
+              >
                 <Text style={styles.logoutButtonText}>Sign Out</Text>
               </TouchableOpacity>
             </View>
@@ -104,20 +149,25 @@ const HomeScreen = ({ navigation }) => {
         </ImageBackground>
       </View>
 
+      {/* Team Selector */}
+      <TeamSelector
+        teams={teams}
+        selectedTeamId={selectedTeamId}
+        onSelectTeam={selectTeam}
+      />
+
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{matches?.length || 0}</Text>
+          <Text style={styles.statValue}>{stats.totalMatches}</Text>
           <Text style={styles.statLabel}>Total Matches</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{players?.length || 0}</Text>
+          <Text style={styles.statValue}>{stats.totalPlayers}</Text>
           <Text style={styles.statLabel}>Players</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>
-            {matches?.filter(m => m.isFinished && m.goalsFor > m.goalsAgainst).length || 0}
-          </Text>
+          <Text style={styles.statValue}>{stats.wins}</Text>
           <Text style={styles.statLabel}>Wins</Text>
         </View>
       </View>
@@ -130,7 +180,7 @@ const HomeScreen = ({ navigation }) => {
               <Ionicons name="calendar" size={24} color={COLORS.primary} />
               <Text style={styles.sectionTitle}>Scheduled Matches</Text>
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate('History')}>
+            <TouchableOpacity onPress={() => navigation.navigate("History")}>
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
@@ -143,33 +193,59 @@ const HomeScreen = ({ navigation }) => {
                 <Text style={styles.matchOpponent}>{match.opponent}</Text>
                 <View style={styles.matchHeaderActions}>
                   <View style={styles.matchTypeBadge}>
-                    <Text style={styles.matchTypeText}>{match.matchType.toUpperCase()}</Text>
+                    <Text style={styles.matchTypeText}>
+                      {match.matchType.toUpperCase()}
+                    </Text>
                   </View>
                   <TouchableOpacity
                     style={styles.editButton}
-                    onPress={() => navigation.navigate('EditMatch', { matchId: match.id, match })}
+                    onPress={() =>
+                      navigation.navigate("EditMatch", {
+                        matchId: match.id,
+                        match,
+                      })
+                    }
                   >
-                    <Ionicons name="create-outline" size={18} color={COLORS.primary} />
+                    <Ionicons
+                      name="create-outline"
+                      size={18}
+                      color={COLORS.primary}
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
               <View style={styles.matchInfoRow}>
-                <Ionicons name="location" size={14} color={COLORS.textSecondary} />
+                <Ionicons
+                  name="location"
+                  size={14}
+                  color={COLORS.textSecondary}
+                />
                 <Text style={styles.matchDate}>
-                  {match.venue === 'home' ? 'Home' : 'Away'} • {formatDateTime(match.date)}
+                  {match.venue === "home" ? "Home" : "Away"} •{" "}
+                  {formatDateTime(match.date)}
                 </Text>
               </View>
-              {match.selectedPlayerIds && match.selectedPlayerIds.length > 0 && (
-                <View style={styles.matchInfoRow}>
-                  <Ionicons name="people" size={14} color={COLORS.textSecondary} />
-                  <Text style={styles.playerCount}>
-                    {match.selectedPlayerIds.length} player{match.selectedPlayerIds.length !== 1 ? 's' : ''} selected
-                  </Text>
-                </View>
-              )}
+              {match.selectedPlayerIds &&
+                match.selectedPlayerIds.length > 0 && (
+                  <View style={styles.matchInfoRow}>
+                    <Ionicons
+                      name="people"
+                      size={14}
+                      color={COLORS.textSecondary}
+                    />
+                    <Text style={styles.playerCount}>
+                      {match.selectedPlayerIds.length} player
+                      {match.selectedPlayerIds.length !== 1 ? "s" : ""} selected
+                    </Text>
+                  </View>
+                )}
               {match.notes && (
                 <View style={styles.matchInfoRow}>
-                  <Ionicons name="document-text" size={14} color={COLORS.textSecondary} />
+                  <Ionicons
+                    name="document-text"
+                    size={14}
+                    color={COLORS.textSecondary}
+                  />
                   <Text style={styles.matchNotes} numberOfLines={2}>
                     {match.notes}
                   </Text>
@@ -177,7 +253,9 @@ const HomeScreen = ({ navigation }) => {
               )}
               <TouchableOpacity
                 style={styles.startMatchButton}
-                onPress={() => navigation.navigate('MatchDetails', { matchId: match.id })}
+                onPress={() =>
+                  navigation.navigate("LiveMatch", { matchId: match.id })
+                }
               >
                 <Ionicons name="play-circle" size={20} color="#fff" />
                 <Text style={styles.startMatchButtonText}>Start Match</Text>
@@ -190,7 +268,7 @@ const HomeScreen = ({ navigation }) => {
           <Text style={styles.sectionTitle}>No Scheduled Matches</Text>
           <TouchableOpacity
             style={styles.addMatchButton}
-            onPress={() => navigation.navigate('AddMatch')}
+            onPress={() => navigation.navigate("AddMatch")}
           >
             <Text style={styles.addMatchButtonText}>+ Schedule New Match</Text>
           </TouchableOpacity>
@@ -202,7 +280,7 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Matches</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('History')}>
+            <TouchableOpacity onPress={() => navigation.navigate("History")}>
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
@@ -210,19 +288,25 @@ const HomeScreen = ({ navigation }) => {
             <TouchableOpacity
               key={match.id}
               style={styles.matchCard}
-              onPress={() => navigation.navigate('MatchDetails', { matchId: match.id })}
+              onPress={() =>
+                navigation.navigate("MatchDetails", { matchId: match.id })
+              }
             >
               <View style={styles.matchRow}>
                 <View style={styles.matchInfo}>
                   <Text style={styles.matchOpponent}>{match.opponent}</Text>
-                  <Text style={styles.matchDate}>{formatDateTime(match.date)}</Text>
+                  <Text style={styles.matchDate}>
+                    {formatDateTime(match.date)}
+                  </Text>
                 </View>
                 <View style={styles.resultContainer}>
-                  <Text style={[
-                    styles.result,
-                    match.goalsFor > match.goalsAgainst && styles.resultWin,
-                    match.goalsFor < match.goalsAgainst && styles.resultLoss,
-                  ]}>
+                  <Text
+                    style={[
+                      styles.result,
+                      match.goalsFor > match.goalsAgainst && styles.resultWin,
+                      match.goalsFor < match.goalsAgainst && styles.resultLoss,
+                    ]}
+                  >
                     {match.goalsFor} - {match.goalsAgainst}
                   </Text>
                 </View>
@@ -238,16 +322,23 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={[styles.actionButton, styles.actionButtonPrimary]}
-            onPress={() => navigation.navigate('AddMatch')}
+            onPress={() => navigation.navigate("AddMatch")}
           >
             <View style={styles.actionButtonContent}>
               <Ionicons name="add-circle" size={24} color="#fff" />
-              <Text style={[styles.actionButtonText, styles.actionButtonPrimaryText]}>Add Match</Text>
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  styles.actionButtonPrimaryText,
+                ]}
+              >
+                Add Match
+              </Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => navigation.navigate('Players')}
+            onPress={() => navigation.navigate("Players")}
           >
             <View style={styles.actionButtonContent}>
               <Ionicons name="people" size={24} color={COLORS.primary} />
@@ -256,7 +347,7 @@ const HomeScreen = ({ navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => navigation.navigate('Stats')}
+            onPress={() => navigation.navigate("Stats")}
           >
             <View style={styles.actionButtonContent}>
               <Ionicons name="stats-chart" size={24} color={COLORS.primary} />
@@ -276,8 +367,8 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: COLORS.background,
   },
   loadingText: {
@@ -289,26 +380,26 @@ const styles = StyleSheet.create({
   header: {
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   headerBackground: {
-    width: '100%',
+    width: "100%",
   },
   headerOverlay: {
-    backgroundColor: 'rgba(37, 99, 235, 0.55)',
+    backgroundColor: "rgba(37, 99, 235, 0.55)",
     padding: 20,
   },
   headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   titleContainer: {
     flex: 1,
   },
   titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 5,
   },
   logo: {
@@ -319,22 +410,22 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontFamily: FONTS.heading,
-    color: '#fff',
+    color: "#fff",
     letterSpacing: 2,
   },
   subtitle: {
     fontSize: 16,
     fontFamily: FONTS.body,
-    color: '#fff',
+    color: "#fff",
     opacity: 0.9,
   },
   logoutButton: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: "#fff",
   },
   logoutButtonText: {
     color: COLORS.primary,
@@ -342,20 +433,20 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bodyBold,
   },
   statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     padding: 20,
     paddingBottom: 10,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 15,
     marginHorizontal: 5,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -377,14 +468,14 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 15,
   },
   sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   sectionTitle: {
@@ -399,12 +490,12 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bodyBold,
   },
   matchCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 15,
     borderRadius: 12,
     marginBottom: 10,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -418,14 +509,14 @@ const styles = StyleSheet.create({
     borderLeftColor: COLORS.primary,
   },
   matchHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
   },
   matchHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   matchOpponent: {
@@ -442,20 +533,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   matchTypeText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 10,
     fontFamily: FONTS.bodyBold,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   editButton: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
     width: 32,
     height: 32,
     borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderColor: "rgba(0, 0, 0, 0.1)",
   },
   editButtonText: {
     fontSize: 14,
@@ -467,8 +558,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   matchInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     marginBottom: 8,
   },
@@ -482,11 +573,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: FONTS.body,
     color: COLORS.textSecondary,
-    fontStyle: 'italic',
+    fontStyle: "italic",
     marginBottom: 12,
   },
   scoreContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginVertical: 15,
   },
   score: {
@@ -499,10 +590,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.success,
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   continueButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
     fontFamily: FONTS.bodyBold,
   },
@@ -510,14 +601,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.success,
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     gap: 8,
   },
   startMatchButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 15,
     fontFamily: FONTS.bodyBold,
   },
@@ -526,17 +617,17 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 12,
     marginTop: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   addMatchButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
     fontFamily: FONTS.bodyBold,
   },
   matchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   matchInfo: {
     flex: 1,
@@ -556,44 +647,43 @@ const styles = StyleSheet.create({
     color: COLORS.error,
   },
   actionsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     gap: 10,
     marginTop: 10,
   },
   actionButton: {
     flex: 1,
-    minWidth: '45%',
-    backgroundColor: '#fff',
+    minWidth: "45%",
+    backgroundColor: "#fff",
     padding: 15,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   actionButtonPrimary: {
     backgroundColor: COLORS.primary,
-    flexBasis: '100%',
+    flexBasis: "100%",
   },
   actionButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   actionButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
   },
   actionButtonPrimaryText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
   },
 });
 
 export default HomeScreen;
-

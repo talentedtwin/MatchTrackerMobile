@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback, useRef, memo } from "react";
 import {
   View,
   Text,
@@ -10,47 +10,203 @@ import {
   ActivityIndicator,
   Modal,
   RefreshControl,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { usePlayers, useTeams } from '../hooks/useResources';
-import { COLORS } from '../config/constants';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { usePlayers, useTeams } from "../hooks/useResources";
+import { useTeamContext } from "../contexts/TeamContext";
+import { COLORS } from "../config/constants";
+
+// Memoized PlayerCard component to prevent unnecessary re-renders
+const PlayerCard = memo(({ player, onEdit, onDelete }) => {
+  return (
+    <View style={styles.playerCard}>
+      <View style={styles.playerInfo}>
+        <Text style={styles.playerName}>{player.name}</Text>
+        <View style={styles.playerStatsRow}>
+          <View style={styles.statItem}>
+            <Ionicons name="football" size={14} color={COLORS.primary} />
+            <Text style={styles.playerStats}>{player.goals} goals</Text>
+          </View>
+          <Text style={styles.statDivider}>•</Text>
+          <View style={styles.statItem}>
+            <Ionicons name="flash" size={14} color="#FFA500" />
+            <Text style={styles.playerStats}>{player.assists} assists</Text>
+          </View>
+        </View>
+      </View>
+      <View style={styles.actionButtons}>
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => onEdit(player)}
+        >
+          <Ionicons name="create-outline" size={18} color={COLORS.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => onDelete(player.id)}
+        >
+          <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
+
+// Memoized TeamCard component
+const TeamCard = memo(({ team, players, onEdit, onDelete, navigation }) => {
+  return (
+    <View style={styles.teamCard}>
+      <View style={styles.teamHeader}>
+        <View style={styles.teamInfo}>
+          <Text style={styles.teamName}>{team.name}</Text>
+          <Text style={styles.teamPlayerCount}>
+            {players.length} player{players.length !== 1 ? "s" : ""}
+          </Text>
+        </View>
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate("AddTeam", { team })}
+          >
+            <Ionicons name="create-outline" size={18} color={COLORS.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => onDelete(team.id)}
+          >
+            <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {players.length > 0 && (
+        <View style={styles.playersList}>
+          {players.map((player) => (
+            <View key={player.id} style={styles.playerChip}>
+              <Text style={styles.playerChipText}>
+                {player.name} ({player.goals}G {player.assists}A)
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+});
 
 const PlayersScreen = ({ navigation }) => {
-  const { players, loading: playersLoading, addPlayer, updatePlayer, removePlayer, refetch: refetchPlayers } = usePlayers();
-  const { teams, loading: teamsLoading, addTeam, updateTeam, removeTeam, refetch: refetchTeams } = useTeams();
-  
+  const { selectedTeamId: filterTeamId } = useTeamContext();
+  const {
+    players,
+    loading: playersLoading,
+    addPlayer,
+    updatePlayer,
+    removePlayer,
+    refetch: refetchPlayers,
+  } = usePlayers(filterTeamId);
+  const [activeTab, setActiveTab] = useState("teams"); // 'teams' or 'players'
+
+  // Lazy load teams only when Teams tab is active
+  const {
+    teams,
+    loading: teamsLoading,
+    addTeam,
+    updateTeam,
+    removeTeam,
+    refetch: refetchTeams,
+  } = useTeams(
+    activeTab === "teams" ? { include: "players" } : { summary: true }
+  );
+
   const [modalVisible, setModalVisible] = useState(false);
   const [teamModalVisible, setTeamModalVisible] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [editingTeam, setEditingTeam] = useState(null);
-  const [playerName, setPlayerName] = useState('');
-  const [teamName, setTeamName] = useState('');
-  const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [playerName, setPlayerName] = useState("");
+  const [teamName, setTeamName] = useState("");
+  const [selectedTeamId, setSelectedTeamId] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('teams'); // 'teams' or 'players'
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchTimeoutRef = useRef(null);
+  const lastRefreshRef = useRef(Date.now());
 
   const loading = playersLoading || teamsLoading;
 
-  const onRefresh = async () => {
+  // Pull-to-refresh cooldown (prevent rapid successive refreshes)
+  const onRefresh = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastRefreshRef.current < 2000) {
+      // 2 second cooldown
+      return;
+    }
+    lastRefreshRef.current = now;
+
     setRefreshing(true);
     await Promise.all([refetchPlayers(), refetchTeams()]);
     setRefreshing(false);
-  };
+  }, [refetchPlayers, refetchTeams]);
+
+  // Debounced search (300ms delay)
+  const handleSearchChange = useCallback((text) => {
+    setSearchQuery(text);
+
+    // Clear existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Set new timeout for debounced search
+    // In a real implementation, this would trigger API call with search parameter
+    searchTimeoutRef.current = setTimeout(() => {
+      // Future: Call API with search parameter
+      console.log("Search query:", text);
+    }, 300);
+  }, []);
+
+  // Filter players based on search query
+  const filteredPlayers = useMemo(() => {
+    if (!searchQuery.trim()) return players;
+    const query = searchQuery.toLowerCase();
+    return players.filter((player) =>
+      player.name.toLowerCase().includes(query)
+    );
+  }, [players, searchQuery]);
+
+  // Filter teams based on search query and active tab
+  const filteredTeams = useMemo(() => {
+    if (!searchQuery.trim()) return teams;
+    const query = searchQuery.toLowerCase();
+
+    // In Players tab, show teams that have matching players OR match by name
+    if (activeTab === "players") {
+      const matchingPlayerTeamIds = filteredPlayers
+        .filter((p) => p.teamId)
+        .map((p) => p.teamId);
+      return teams.filter(
+        (team) =>
+          matchingPlayerTeamIds.includes(team.id) ||
+          team.name.toLowerCase().includes(query)
+      );
+    }
+
+    // In Teams tab, only filter by team name
+    return teams.filter((team) => team.name.toLowerCase().includes(query));
+  }, [teams, searchQuery, activeTab, filteredPlayers]);
 
   // Team Management
   const handleAddTeam = async () => {
     if (!teamName.trim()) {
-      Alert.alert('Error', 'Please enter a team name');
+      Alert.alert("Error", "Please enter a team name");
       return;
     }
 
     try {
       await addTeam({ name: teamName });
-      setTeamName('');
+      setTeamName("");
       setTeamModalVisible(false);
-      Alert.alert('Success', 'Team added successfully');
+      Alert.alert("Success", "Team added successfully");
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to add team');
+      Alert.alert("Error", error.message || "Failed to add team");
     }
   };
 
@@ -62,107 +218,103 @@ const PlayersScreen = ({ navigation }) => {
 
   const handleUpdateTeam = async () => {
     if (!teamName.trim()) {
-      Alert.alert('Error', 'Please enter a team name');
+      Alert.alert("Error", "Please enter a team name");
       return;
     }
 
     try {
       await updateTeam(editingTeam.id, { name: teamName });
       setEditingTeam(null);
-      setTeamName('');
+      setTeamName("");
       setTeamModalVisible(false);
-      Alert.alert('Success', 'Team updated successfully');
+      Alert.alert("Success", "Team updated successfully");
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to update team');
+      Alert.alert("Error", error.message || "Failed to update team");
     }
   };
 
   const handleDeleteTeam = (teamId) => {
-    Alert.alert(
-      'Delete Team',
-      'Are you sure you want to delete this team?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeTeam(teamId);
-              Alert.alert('Success', 'Team deleted successfully');
-            } catch (error) {
-              Alert.alert('Error', error.message || 'Failed to delete team');
-            }
-          },
+    Alert.alert("Delete Team", "Are you sure you want to delete this team?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await removeTeam(teamId);
+            Alert.alert("Success", "Team deleted successfully");
+          } catch (error) {
+            Alert.alert("Error", error.message || "Failed to delete team");
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   // Player Management
   const handleAddPlayer = async () => {
     if (!playerName.trim()) {
-      Alert.alert('Error', 'Please enter a player name');
+      Alert.alert("Error", "Please enter a player name");
       return;
     }
 
     try {
-      await addPlayer({ 
-        name: playerName, 
-        teamId: selectedTeamId || undefined 
+      await addPlayer({
+        name: playerName,
+        teamId: selectedTeamId || undefined,
       });
-      setPlayerName('');
-      setSelectedTeamId('');
+      setPlayerName("");
+      setSelectedTeamId("");
       setModalVisible(false);
-      Alert.alert('Success', 'Player added successfully');
+      Alert.alert("Success", "Player added successfully");
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to add player');
+      Alert.alert("Error", error.message || "Failed to add player");
     }
   };
 
   const handleEditPlayer = (player) => {
     setEditingPlayer(player);
     setPlayerName(player.name);
-    setSelectedTeamId(player.teamId || '');
+    setSelectedTeamId(player.teamId || "");
     setModalVisible(true);
   };
 
   const handleUpdatePlayer = async () => {
     if (!playerName.trim()) {
-      Alert.alert('Error', 'Please enter a player name');
+      Alert.alert("Error", "Please enter a player name");
       return;
     }
 
     try {
-      await updatePlayer(editingPlayer.id, { 
+      await updatePlayer(editingPlayer.id, {
         name: playerName,
-        teamId: selectedTeamId || null
+        teamId: selectedTeamId || null,
       });
       setEditingPlayer(null);
-      setPlayerName('');
-      setSelectedTeamId('');
+      setPlayerName("");
+      setSelectedTeamId("");
       setModalVisible(false);
-      Alert.alert('Success', 'Player updated successfully');
+      Alert.alert("Success", "Player updated successfully");
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to update player');
+      Alert.alert("Error", error.message || "Failed to update player");
     }
   };
 
   const handleDeletePlayer = (playerId) => {
     Alert.alert(
-      'Delete Player',
-      'Are you sure you want to delete this player?',
+      "Delete Player",
+      "Are you sure you want to delete this player?",
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: async () => {
             try {
               await removePlayer(playerId);
-              Alert.alert('Success', 'Player deleted successfully');
+              Alert.alert("Success", "Player deleted successfully");
             } catch (error) {
-              Alert.alert('Error', error.message || 'Failed to delete player');
+              Alert.alert("Error", error.message || "Failed to delete player");
             }
           },
         },
@@ -171,10 +323,10 @@ const PlayersScreen = ({ navigation }) => {
   };
 
   const getPlayersByTeam = (teamId) => {
-    return players.filter(p => p.teamId === teamId);
+    return filteredPlayers.filter((p) => p.teamId === teamId);
   };
 
-  const unassignedPlayers = players.filter(p => !p.teamId);
+  const unassignedPlayers = filteredPlayers.filter((p) => !p.teamId);
 
   if (loading && players.length === 0 && teams.length === 0) {
     return (
@@ -190,21 +342,52 @@ const PlayersScreen = ({ navigation }) => {
       {/* Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'teams' && styles.activeTab]}
-          onPress={() => setActiveTab('teams')}
+          style={[styles.tab, activeTab === "teams" && styles.activeTab]}
+          onPress={() => setActiveTab("teams")}
         >
-          <Text style={[styles.tabText, activeTab === 'teams' && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "teams" && styles.activeTabText,
+            ]}
+          >
             Teams
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'players' && styles.activeTab]}
-          onPress={() => setActiveTab('players')}
+          style={[styles.tab, activeTab === "players" && styles.activeTab]}
+          onPress={() => setActiveTab("players")}
         >
-          <Text style={[styles.tabText, activeTab === 'players' && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "players" && styles.activeTabText,
+            ]}
+          >
             Players
           </Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color={COLORS.textSecondary} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder={`Search ${activeTab}...`}
+          value={searchQuery}
+          onChangeText={handleSearchChange}
+          returnKeyType="search"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => handleSearchChange("")}>
+            <Ionicons
+              name="close-circle"
+              size={20}
+              color={COLORS.textSecondary}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
@@ -213,64 +396,42 @@ const PlayersScreen = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {activeTab === 'teams' ? (
+        {activeTab === "teams" ? (
           // Teams Tab
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Your Teams</Text>
               <TouchableOpacity
                 style={styles.addButton}
-                onPress={() => navigation.navigate('AddTeam')}
+                onPress={() => navigation.navigate("AddTeam")}
               >
                 <Text style={styles.addButtonText}>+ Add Team</Text>
               </TouchableOpacity>
             </View>
 
-            {teams.length === 0 ? (
+            {filteredTeams.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No teams yet</Text>
-                <Text style={styles.emptySubtext}>Create your first team to get started</Text>
+                <Text style={styles.emptyText}>
+                  {searchQuery.trim() ? "No teams found" : "No teams yet"}
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  {searchQuery.trim()
+                    ? "Try a different search term"
+                    : "Create your first team to get started"}
+                </Text>
               </View>
             ) : (
-              teams.map((team) => {
+              filteredTeams.map((team) => {
                 const teamPlayers = getPlayersByTeam(team.id);
                 return (
-                  <View key={team.id} style={styles.teamCard}>
-                    <View style={styles.teamHeader}>
-                      <View style={styles.teamInfo}>
-                        <Text style={styles.teamName}>{team.name}</Text>
-                        <Text style={styles.teamPlayerCount}>
-                          {teamPlayers.length} player{teamPlayers.length !== 1 ? 's' : ''}
-                        </Text>
-                      </View>
-                      <View style={styles.actionButtons}>
-                        <TouchableOpacity
-                          style={styles.iconButton}
-                          onPress={() => navigation.navigate('AddTeam', { team })}
-                        >
-                          <Ionicons name="create-outline" size={18} color={COLORS.primary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.iconButton}
-                          onPress={() => handleDeleteTeam(team.id)}
-                        >
-                          <Ionicons name="trash-outline" size={18} color={COLORS.error} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                    
-                    {teamPlayers.length > 0 && (
-                      <View style={styles.playersList}>
-                        {teamPlayers.map((player) => (
-                          <View key={player.id} style={styles.playerChip}>
-                            <Text style={styles.playerChipText}>
-                              {player.name} ({player.goals}G {player.assists}A)
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                  </View>
+                  <TeamCard
+                    key={team.id}
+                    team={team}
+                    players={teamPlayers}
+                    onEdit={handleEditTeam}
+                    onDelete={handleDeleteTeam}
+                    navigation={navigation}
+                  />
                 );
               })
             )}
@@ -284,8 +445,8 @@ const PlayersScreen = ({ navigation }) => {
                 style={styles.addButton}
                 onPress={() => {
                   setEditingPlayer(null);
-                  setPlayerName('');
-                  setSelectedTeamId('');
+                  setPlayerName("");
+                  setSelectedTeamId("");
                   setModalVisible(true);
                 }}
               >
@@ -298,88 +459,46 @@ const PlayersScreen = ({ navigation }) => {
               <View style={styles.subsection}>
                 <Text style={styles.subsectionTitle}>Unassigned Players</Text>
                 {unassignedPlayers.map((player) => (
-                  <View key={player.id} style={styles.playerCard}>
-                    <View style={styles.playerInfo}>
-                      <Text style={styles.playerName}>{player.name}</Text>
-                      <View style={styles.playerStatsRow}>
-                        <View style={styles.statItem}>
-                          <Ionicons name="football" size={14} color={COLORS.primary} />
-                          <Text style={styles.playerStats}>{player.goals} goals</Text>
-                        </View>
-                        <Text style={styles.statDivider}>•</Text>
-                        <View style={styles.statItem}>
-                          <Ionicons name="flash" size={14} color="#FFA500" />
-                          <Text style={styles.playerStats}>{player.assists} assists</Text>
-                        </View>
-                      </View>
-                    </View>
-                    <View style={styles.actionButtons}>
-                      <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() => handleEditPlayer(player)}
-                      >
-                        <Ionicons name="create-outline" size={18} color={COLORS.primary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() => handleDeletePlayer(player.id)}
-                      >
-                        <Ionicons name="trash-outline" size={18} color={COLORS.error} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  <PlayerCard
+                    key={player.id}
+                    player={player}
+                    onEdit={handleEditPlayer}
+                    onDelete={handleDeletePlayer}
+                  />
                 ))}
               </View>
             )}
 
             {/* Players by Team */}
-            {teams.map((team) => {
+            {filteredTeams.map((team) => {
               const teamPlayers = getPlayersByTeam(team.id);
               if (teamPlayers.length === 0) return null;
-              
+
               return (
                 <View key={team.id} style={styles.subsection}>
                   <Text style={styles.subsectionTitle}>{team.name}</Text>
                   {teamPlayers.map((player) => (
-                    <View key={player.id} style={styles.playerCard}>
-                      <View style={styles.playerInfo}>
-                        <Text style={styles.playerName}>{player.name}</Text>
-                        <View style={styles.playerStatsRow}>
-                          <View style={styles.statItem}>
-                            <Ionicons name="football" size={14} color={COLORS.primary} />
-                            <Text style={styles.playerStats}>{player.goals} goals</Text>
-                          </View>
-                          <Text style={styles.statDivider}>•</Text>
-                          <View style={styles.statItem}>
-                            <Ionicons name="flash" size={14} color="#FFA500" />
-                            <Text style={styles.playerStats}>{player.assists} assists</Text>
-                          </View>
-                        </View>
-                      </View>
-                      <View style={styles.actionButtons}>
-                        <TouchableOpacity
-                          style={styles.iconButton}
-                          onPress={() => handleEditPlayer(player)}
-                        >
-                          <Ionicons name="create-outline" size={18} color={COLORS.primary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.iconButton}
-                          onPress={() => handleDeletePlayer(player.id)}
-                        >
-                          <Ionicons name="trash-outline" size={18} color={COLORS.error} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                    <PlayerCard
+                      key={player.id}
+                      player={player}
+                      onEdit={handleEditPlayer}
+                      onDelete={handleDeletePlayer}
+                    />
                   ))}
                 </View>
               );
             })}
 
-            {players.length === 0 && (
+            {filteredPlayers.length === 0 && (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No players yet</Text>
-                <Text style={styles.emptySubtext}>Add your first player to get started</Text>
+                <Text style={styles.emptyText}>
+                  {searchQuery.trim() ? "No players found" : "No players yet"}
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  {searchQuery.trim()
+                    ? "Try a different search term"
+                    : "Add your first player to get started"}
+                </Text>
               </View>
             )}
           </View>
@@ -396,9 +515,9 @@ const PlayersScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {editingPlayer ? 'Edit Player' : 'Add Player'}
+              {editingPlayer ? "Edit Player" : "Add Player"}
             </Text>
-            
+
             <TextInput
               style={styles.input}
               placeholder="Player Name"
@@ -409,20 +528,37 @@ const PlayersScreen = ({ navigation }) => {
             <Text style={styles.label}>Assign to Team (Optional)</Text>
             <View style={styles.teamSelector}>
               <TouchableOpacity
-                style={[styles.teamOption, !selectedTeamId && styles.teamOptionSelected]}
-                onPress={() => setSelectedTeamId('')}
+                style={[
+                  styles.teamOption,
+                  !selectedTeamId && styles.teamOptionSelected,
+                ]}
+                onPress={() => setSelectedTeamId("")}
               >
-                <Text style={[styles.teamOptionText, !selectedTeamId && styles.teamOptionTextSelected]}>
+                <Text
+                  style={[
+                    styles.teamOptionText,
+                    !selectedTeamId && styles.teamOptionTextSelected,
+                  ]}
+                >
                   No Team
                 </Text>
               </TouchableOpacity>
               {teams.map((team) => (
                 <TouchableOpacity
                   key={team.id}
-                  style={[styles.teamOption, selectedTeamId === team.id && styles.teamOptionSelected]}
+                  style={[
+                    styles.teamOption,
+                    selectedTeamId === team.id && styles.teamOptionSelected,
+                  ]}
                   onPress={() => setSelectedTeamId(team.id)}
                 >
-                  <Text style={[styles.teamOptionText, selectedTeamId === team.id && styles.teamOptionTextSelected]}>
+                  <Text
+                    style={[
+                      styles.teamOptionText,
+                      selectedTeamId === team.id &&
+                        styles.teamOptionTextSelected,
+                    ]}
+                  >
                     {team.name}
                   </Text>
                 </TouchableOpacity>
@@ -435,8 +571,8 @@ const PlayersScreen = ({ navigation }) => {
                 onPress={() => {
                   setModalVisible(false);
                   setEditingPlayer(null);
-                  setPlayerName('');
-                  setSelectedTeamId('');
+                  setPlayerName("");
+                  setSelectedTeamId("");
                 }}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -446,7 +582,7 @@ const PlayersScreen = ({ navigation }) => {
                 onPress={editingPlayer ? handleUpdatePlayer : handleAddPlayer}
               >
                 <Text style={styles.saveButtonText}>
-                  {editingPlayer ? 'Update' : 'Add'}
+                  {editingPlayer ? "Update" : "Add"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -464,9 +600,9 @@ const PlayersScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {editingTeam ? 'Edit Team' : 'Add Team'}
+              {editingTeam ? "Edit Team" : "Add Team"}
             </Text>
-            
+
             <TextInput
               style={styles.input}
               placeholder="Team Name"
@@ -480,7 +616,7 @@ const PlayersScreen = ({ navigation }) => {
                 onPress={() => {
                   setTeamModalVisible(false);
                   setEditingTeam(null);
-                  setTeamName('');
+                  setTeamName("");
                 }}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -490,7 +626,7 @@ const PlayersScreen = ({ navigation }) => {
                 onPress={editingTeam ? handleUpdateTeam : handleAddTeam}
               >
                 <Text style={styles.saveButtonText}>
-                  {editingTeam ? 'Update' : 'Add'}
+                  {editingTeam ? "Update" : "Add"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -508,8 +644,8 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: COLORS.background,
   },
   loadingText: {
@@ -518,10 +654,10 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    backgroundColor: "#fff",
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -529,20 +665,34 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     padding: 15,
-    alignItems: 'center',
+    alignItems: "center",
     borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderBottomColor: "transparent",
   },
   activeTab: {
     borderBottomColor: COLORS.primary,
   },
   tabText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.textSecondary,
   },
   activeTabText: {
     color: COLORS.primary,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    padding: 12,
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    padding: 0,
   },
   content: {
     flex: 1,
@@ -551,14 +701,14 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 15,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
   },
   subsection: {
@@ -566,7 +716,7 @@ const styles = StyleSheet.create({
   },
   subsectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     marginBottom: 10,
   },
@@ -577,32 +727,32 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   addButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   teamCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 15,
     borderRadius: 12,
     marginBottom: 10,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   teamHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   teamInfo: {
     flex: 1,
   },
   teamName: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 5,
   },
@@ -611,8 +761,8 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   playersList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
@@ -631,15 +781,15 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   playerCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 15,
     borderRadius: 12,
     marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -649,7 +799,7 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 5,
   },
@@ -658,13 +808,13 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   playerStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   statDivider: {
@@ -672,7 +822,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   iconButton: {
     padding: 8,
@@ -683,11 +833,11 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     padding: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.textSecondary,
     marginBottom: 5,
   },
@@ -697,26 +847,26 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 20,
-    width: '90%',
+    width: "90%",
     maxWidth: 400,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 20,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     marginTop: 15,
     marginBottom: 10,
@@ -748,35 +898,35 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   teamOptionTextSelected: {
-    color: '#fff',
-    fontWeight: '600',
+    color: "#fff",
+    fontWeight: "600",
   },
   modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   modalButton: {
     flex: 1,
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginHorizontal: 5,
   },
   cancelButton: {
     backgroundColor: COLORS.warning,
   },
   cancelButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   saveButton: {
     backgroundColor: COLORS.success,
   },
   saveButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
 

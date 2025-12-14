@@ -3,26 +3,26 @@
  * GET /api/player-match-stats - Get all player match stats
  * POST /api/player-match-stats - Create player match stat
  */
-import { requireAuth  } from '../../middleware/auth.js';
-import { withDatabaseUserContext  } from '../../lib/db-utils.js';
-import { getPrisma  } from '../../lib/prisma.js';
-import EncryptionService from '../../lib/encryption.js';
+import { requireAuth } from "../../middleware/auth.js";
+import { withDatabaseUserContext } from "../../lib/db-utils.js";
+import { getPrisma } from "../../lib/prisma.js";
+import EncryptionService from "../../lib/encryption.js";
 
 async function handler(req, res) {
   try {
     // Get authenticated user
     const userId = await requireAuth(req);
 
-    if (req.method === 'GET') {
-      const { playerId, matchId } = req.query;
+    if (req.method === "GET") {
+      const { playerId, matchId, limit = "100", skip = "0" } = req.query;
 
       const stats = await withDatabaseUserContext(userId, async (tx) => {
         const where = {};
-        
+
         if (playerId) where.playerId = playerId;
         if (matchId) where.matchId = matchId;
 
-        // If no filters, get stats for user's matches
+        // If no filters, get stats for user's matches with pagination
         if (!playerId && !matchId) {
           where.match = {
             userId,
@@ -40,12 +40,14 @@ async function handler(req, res) {
             },
           },
           orderBy: {
-            createdAt: 'desc',
+            createdAt: "desc",
           },
+          take: Math.min(parseInt(limit), 100), // Max 100 records
+          skip: parseInt(skip),
         });
 
         // Decrypt player and team names
-        return result.map(stat => ({
+        return result.map((stat) => ({
           ...stat,
           player: {
             ...stat.player,
@@ -53,10 +55,12 @@ async function handler(req, res) {
           },
           match: {
             ...stat.match,
-            team: stat.match.team ? {
-              ...stat.match.team,
-              name: EncryptionService.decrypt(stat.match.team.name),
-            } : null,
+            team: stat.match.team
+              ? {
+                  ...stat.match.team,
+                  name: EncryptionService.decrypt(stat.match.team.name),
+                }
+              : null,
           },
         }));
       });
@@ -68,13 +72,13 @@ async function handler(req, res) {
       });
     }
 
-    if (req.method === 'POST') {
+    if (req.method === "POST") {
       const { playerId, matchId, goals = 0, assists = 0 } = req.body;
 
       if (!playerId || !matchId) {
         return res.status(400).json({
           success: false,
-          error: 'Player ID and Match ID are required',
+          error: "Player ID and Match ID are required",
         });
       }
 
@@ -88,7 +92,7 @@ async function handler(req, res) {
         });
 
         if (!match) {
-          throw new Error('Match not found or unauthorized');
+          throw new Error("Match not found or unauthorized");
         }
 
         // Verify player belongs to user
@@ -100,7 +104,7 @@ async function handler(req, res) {
         });
 
         if (!player) {
-          throw new Error('Player not found or unauthorized');
+          throw new Error("Player not found or unauthorized");
         }
 
         // Create or update stat
@@ -152,10 +156,12 @@ async function handler(req, res) {
           },
           match: {
             ...result.match,
-            team: result.match.team ? {
-              ...result.match.team,
-              name: EncryptionService.decrypt(result.match.team.name),
-            } : null,
+            team: result.match.team
+              ? {
+                  ...result.match.team,
+                  name: EncryptionService.decrypt(result.match.team.name),
+                }
+              : null,
           },
         };
       });
@@ -168,19 +174,19 @@ async function handler(req, res) {
 
     return res.status(405).json({
       success: false,
-      error: 'Method not allowed',
+      error: "Method not allowed",
     });
   } catch (error) {
-    console.error('Player match stats API error:', error);
+    console.error("Player match stats API error:", error);
 
-    if (error.message === 'Authentication required') {
+    if (error.message === "Authentication required") {
       return res.status(401).json({
         success: false,
-        error: 'Unauthorized',
+        error: "Unauthorized",
       });
     }
 
-    if (error.message.includes('not found or unauthorized')) {
+    if (error.message.includes("not found or unauthorized")) {
       return res.status(404).json({
         success: false,
         error: error.message,
@@ -189,8 +195,9 @@ async function handler(req, res) {
 
     return res.status(500).json({
       success: false,
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      error: "Internal server error",
+      message:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 }

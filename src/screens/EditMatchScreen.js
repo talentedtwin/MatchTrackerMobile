@@ -13,20 +13,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { usePlayers } from '../hooks/useResources';
+import { useTeamContext } from '../contexts/TeamContext';
 import { matchApi } from '../services/api';
 import { COLORS, FONTS } from '../config/constants';
 
 const EditMatchScreen = ({ route, navigation }) => {
   const { matchId, match } = route.params;
-  const { players, loading: playersLoading } = usePlayers();
+  const { selectedTeamId } = useTeamContext();
+  const { players, loading: playersLoading } = usePlayers(selectedTeamId);
   const [saving, setSaving] = useState(false);
-
-  // Debug: Log players data
-  useEffect(() => {
-    if (players && players.length > 0) {
-      //console.log('Players data:', JSON.stringify(players[0], null, 2));
-    }
-  }, [players]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -101,6 +96,25 @@ const EditMatchScreen = ({ route, navigation }) => {
 
     setSaving(true);
     try {
+      // Determine teamId from selected players
+      let teamId = null;
+      if (formData.selectedPlayerIds.length > 0) {
+        const teamCounts = {};
+        formData.selectedPlayerIds.forEach(playerId => {
+          const player = players.find(p => p.id === playerId);
+          if (player?.teamId) {
+            teamCounts[player.teamId] = (teamCounts[player.teamId] || 0) + 1;
+          }
+        });
+        
+        // Get the teamId with the most players
+        if (Object.keys(teamCounts).length > 0) {
+          teamId = Object.keys(teamCounts).reduce((a, b) => 
+            teamCounts[a] > teamCounts[b] ? a : b
+          );
+        }
+      }
+
       const updatePayload = {
         opponent: formData.opponent.trim(),
         date: formData.date.toISOString(),
@@ -108,7 +122,27 @@ const EditMatchScreen = ({ route, navigation }) => {
         venue: formData.venue,
         notes: formData.notes.trim() || undefined,
         selectedPlayerIds: formData.selectedPlayerIds,
+        teamId: teamId || undefined,
       };
+
+      // If match is finished, ensure all selected players have stats entries
+      if (match.isFinished) {
+        const existingStats = match.playerStats || [];
+        const playerStatsArray = formData.selectedPlayerIds.map(playerId => {
+          // Find existing stats for this player
+          const existingStat = existingStats.find(stat => stat.playerId === playerId);
+          
+          return {
+            playerId,
+            goals: existingStat?.goals || 0,
+            assists: existingStat?.assists || 0,
+            minutesPlayed: existingStat?.minutesPlayed || 0,
+            playingPeriods: existingStat?.playingPeriods || [],
+          };
+        });
+        
+        updatePayload.playerStats = playerStatsArray;
+      }
 
       //console.log('EditMatchScreen - Sending update payload:', JSON.stringify(updatePayload, null, 2));
       //console.log('EditMatchScreen - selectedPlayerIds:', updatePayload.selectedPlayerIds);
@@ -259,6 +293,22 @@ const EditMatchScreen = ({ route, navigation }) => {
                   {formData.matchType === 'cup' && <View style={styles.radioDot} />}
                 </View>
                 <Text style={styles.radioLabel}>Cup Match</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.radioOption}
+                onPress={() =>
+                  setFormData((prev) => ({ ...prev, matchType: 'friendly' }))
+                }
+              >
+                <View
+                  style={[
+                    styles.radioCircle,
+                    formData.matchType === 'friendly' && styles.radioCircleSelected,
+                  ]}
+                >
+                  {formData.matchType === 'friendly' && <View style={styles.radioDot} />}
+                </View>
+                <Text style={styles.radioLabel}>Friendly Match</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -18,8 +18,8 @@ import { formatDateTime, getMatchResult, getResultColor, getPlayerById } from '.
 
 const MatchDetailsScreen = ({ route, navigation }) => {
   const { matchId } = route.params;
-  const { matches, loading: matchesLoading, updateMatch, removeMatch } = useMatches();
-  const { players, loading: playersLoading } = usePlayers();
+  const { matches, loading: matchesLoading, updateMatch, removeMatch } = useMatches(null);
+  const { players, loading: playersLoading } = usePlayers(null);
   
   const [match, setMatch] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -168,7 +168,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
       let message = `🏆 Match Details\n\n`;
       message += `📅 ${formatDateTime(match.date)}\n`;
       message += `📍 ${match.venue === VENUE_TYPES.HOME ? 'Home' : 'Away'}\n`;
-      message += `${match.matchType === MATCH_TYPES.CUP ? '🏆 Cup' : '⚽ League'}\n\n`;
+      message += `${match.matchType === MATCH_TYPES.CUP ? '🏆 Cup' : match.matchType === MATCH_TYPES.FRIENDLY ? '🤝 Friendly' : '⚽ League'}\n\n`;
 
       message += `Opponent: ${match.opponent}\n`;
 
@@ -180,11 +180,12 @@ const MatchDetailsScreen = ({ route, navigation }) => {
         
         // Add player stats if available
         if (playersWithStats.length > 0) {
-          const scorers = playersWithStats.filter(p => p.goals > 0 || p.assists > 0);
+          const scorers = playersWithStats.filter(p => p.goals > 0 || p.assists > 0 || (p.minutesPlayed && p.minutesPlayed > 0));
           if (scorers.length > 0) {
             message += `\n⭐ Player Statistics:\n`;
             scorers.forEach(player => {
               const stats = [];
+              if (player.minutesPlayed && player.minutesPlayed > 0) stats.push(`${player.minutesPlayed} min`);
               if (player.goals > 0) stats.push(`${player.goals} goal${player.goals > 1 ? 's' : ''}`);
               if (player.assists > 0) stats.push(`${player.assists} assist${player.assists > 1 ? 's' : ''}`);
               message += `${player.name}: ${stats.join(', ')}\n`;
@@ -245,6 +246,11 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                   <View style={styles.badgeContent}>
                     <Ionicons name="trophy" size={14} color="#FFD700" />
                     <Text style={styles.badgeText}>Cup</Text>
+                  </View>
+                ) : match.matchType === MATCH_TYPES.FRIENDLY ? (
+                  <View style={styles.badgeContent}>
+                    <Ionicons name="happy" size={14} color={COLORS.success} />
+                    <Text style={styles.badgeText}>Friendly</Text>
                   </View>
                 ) : (
                   <View style={styles.badgeContent}>
@@ -312,6 +318,12 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                   <Text style={styles.playerName}>{player.name}</Text>
                 </View>
                 <View style={styles.playerStats}>
+                  {player.minutesPlayed !== undefined && player.minutesPlayed > 0 && (
+                    <View style={styles.statBadge}>
+                      <Ionicons name="time-outline" size={14} color={COLORS.primary} />
+                      <Text style={styles.statBadgeText}>{player.minutesPlayed}'</Text>
+                    </View>
+                  )}
                   {player.goals > 0 && (
                     <View style={styles.statBadge}>
                       <Ionicons name="football" size={14} color={COLORS.primary} />
@@ -324,7 +336,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                       <Text style={styles.statBadgeText}>{player.assists}</Text>
                     </View>
                   )}
-                  {player.goals === 0 && player.assists === 0 && (
+                  {(player.minutesPlayed === 0 || player.minutesPlayed === undefined) && player.goals === 0 && player.assists === 0 && (
                     <Text style={styles.noStats}>-</Text>
                   )}
                 </View>
@@ -357,7 +369,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Match Type</Text>
             <Text style={styles.infoValue}>
-              {match.matchType === MATCH_TYPES.CUP ? 'Cup' : 'League'}
+              {match.matchType === MATCH_TYPES.CUP ? 'Cup' : match.matchType === MATCH_TYPES.FRIENDLY ? 'Friendly' : 'League'}
             </Text>
           </View>
 
@@ -531,6 +543,21 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                     />
                     <Text style={[styles.optionText, matchType === MATCH_TYPES.CUP && styles.optionTextSelected]}>
                       Cup
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.option, matchType === MATCH_TYPES.FRIENDLY && styles.optionSelected]}
+                  onPress={() => setMatchType(MATCH_TYPES.FRIENDLY)}
+                >
+                  <View style={styles.optionContent}>
+                    <Ionicons 
+                      name="happy" 
+                      size={16} 
+                      color={matchType === MATCH_TYPES.FRIENDLY ? '#fff' : COLORS.success} 
+                    />
+                    <Text style={[styles.optionText, matchType === MATCH_TYPES.FRIENDLY && styles.optionTextSelected]}>
+                      Friendly
                     </Text>
                   </View>
                 </TouchableOpacity>

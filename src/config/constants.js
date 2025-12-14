@@ -33,6 +33,7 @@ export const APP_VERSION = '1.0.0';
 export const MATCH_TYPES = {
   LEAGUE: 'league',
   CUP: 'cup',
+  FRIENDLY: 'friendly',
 };
 
 // Venue Types

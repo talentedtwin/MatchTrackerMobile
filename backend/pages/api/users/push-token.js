@@ -8,7 +8,7 @@ export default async function handler(req, res) {
 
   try {
     // Authenticate user
-    const { userId } = await requireAuth(req);
+    const userId = await requireAuth(req);
 
     const { pushToken } = req.body;
 
