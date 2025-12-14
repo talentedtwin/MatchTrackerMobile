@@ -84,13 +84,13 @@ async function handler(req, res) {
         notes,
         selectedPlayerIds,
         teamId,
+        playerStats,
       } = req.body;
 
       // Debug logging
       console.log('PUT /api/matches/[id] - Request body:', req.body);
       console.log('selectedPlayerIds:', selectedPlayerIds);
-      console.log('selectedPlayerIds type:', typeof selectedPlayerIds);
-      console.log('selectedPlayerIds is array:', Array.isArray(selectedPlayerIds));
+      console.log('playerStats:', playerStats);
 
       const match = await withDatabaseUserContext(userId, async (tx) => {
         const updateData = {
@@ -107,6 +107,28 @@ async function handler(req, res) {
         };
         
         console.log('Update data being sent to Prisma:', JSON.stringify(updateData, null, 2));
+        
+        // If playerStats are provided, update them
+        if (playerStats && Array.isArray(playerStats)) {
+          // First, delete existing player stats for this match
+          await tx.playerMatchStat.deleteMany({
+            where: { matchId: id },
+          });
+
+          // Create new player stats
+          if (playerStats.length > 0) {
+            await tx.playerMatchStat.createMany({
+              data: playerStats.map(stat => ({
+                matchId: id,
+                playerId: stat.playerId,
+                goals: stat.goals || 0,
+                assists: stat.assists || 0,
+                minutesPlayed: stat.minutesPlayed || 0,
+                playingPeriods: stat.playingPeriods || null,
+              })),
+            });
+          }
+        }
         
         const result = await tx.match.update({
           where: { id },

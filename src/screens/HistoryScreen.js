@@ -1,61 +1,139 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, memo, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useMatches } from '../hooks/useResources';
-import { COLORS, MATCH_TYPES, VENUE_TYPES } from '../config/constants';
-import { formatDate, getMatchResult, getResultColor } from '../utils/helpers';
+  TextInput,
+  Modal,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useMatches } from "../hooks/useResources";
+import { useTeamContext } from "../contexts/TeamContext";
+import { COLORS, MATCH_TYPES, VENUE_TYPES } from "../config/constants";
+import { formatDate, getMatchResult, getResultColor } from "../utils/helpers";
+
+// Memoized MatchCard component
+const MatchCard = memo(({ match, onPress }) => {
+  const result = getMatchResult(match.goalsFor, match.goalsAgainst);
+  const resultColor = getResultColor(result);
+
+  return (
+    <TouchableOpacity style={styles.matchCard} onPress={() => onPress(match)}>
+      <View style={styles.matchHeader}>
+        <Text style={styles.matchOpponent}>{match.opponent}</Text>
+        <View style={[styles.resultBadge, { backgroundColor: resultColor }]}>
+          <Text style={styles.resultText}>
+            {result ? result.toUpperCase() : "SCH"}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.matchRow}>
+        <View style={styles.matchInfo}>
+          <View style={styles.matchInfoItem}>
+            <Ionicons name="calendar" size={14} color={COLORS.textSecondary} />
+            <Text style={styles.matchDate}>{formatDate(match.date)}</Text>
+          </View>
+          <View style={styles.matchInfoItem}>
+            <Ionicons name="location" size={14} color={COLORS.textSecondary} />
+            <Text style={styles.matchDate}>
+              {match.venue === "home" ? "Home" : "Away"}
+            </Text>
+          </View>
+          <View style={styles.matchTypeBadge}>
+            <Text style={styles.matchTypeText}>
+              {match.matchType.toUpperCase()}
+            </Text>
+          </View>
+        </View>
+        {match.isFinished && (
+          <Text style={styles.score}>
+            {match.goalsFor} - {match.goalsAgainst}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 const HistoryScreen = ({ navigation }) => {
-  const { matches, loading, refetch } = useMatches();
-  const [refreshing, setRefreshing] = useState(false);
-  const [filterType, setFilterType] = useState('all'); // 'all', 'league', 'cup'
-  const [filterResult, setFilterResult] = useState('all'); // 'all', 'win', 'draw', 'loss'
+  const { selectedTeamId } = useTeamContext();
+  const [filterType, setFilterType] = useState("all"); // 'all', 'league', 'cup'
+  const [filterVenue, setFilterVenue] = useState("all"); // 'all', 'home', 'away'
   const [showScheduled, setShowScheduled] = useState(false); // Toggle between scheduled and finished
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
 
-  const onRefresh = async () => {
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filterType !== "all") count++;
+    if (filterVenue !== "all") count++;
+    return count;
+  }, [filterType, filterVenue]);
+
+  // Build query options for server-side filtering
+  const queryOptions = useMemo(
+    () => ({
+      isFinished: !showScheduled,
+      matchType: filterType !== "all" ? filterType : undefined,
+      venue: filterVenue !== "all" ? filterVenue : undefined,
+      fields: "basic", // Use basic fields for faster list view
+    }),
+    [showScheduled, filterType, filterVenue]
+  );
+
+  // Fetch matches with server-side filters
+  // Use JSON string of options as key to ensure refetch on filter changes
+  const optionsKey = JSON.stringify(queryOptions);
+  const { matches, loading, refetch, invalidate } = useMatches(
+    selectedTeamId,
+    queryOptions
+  );
+
+  // Manually trigger refetch when filters change
+  useEffect(() => {
+    invalidate(); // Clear cache for old filter combination
+    refetch(); // Fetch with new filters
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showScheduled, filterType, filterVenue]);
+
+  // Client-side search filter
+  const filteredMatches = useMemo(() => {
+    if (!searchQuery.trim()) return matches;
+    const query = searchQuery.toLowerCase();
+    return matches.filter((match) =>
+      match.opponent.toLowerCase().includes(query)
+    );
+  }, [matches, searchQuery]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
-  };
+  }, [refetch]);
 
-  // Filter and sort matches
-  const filteredMatches = useMemo(() => {
-    let filtered = matches
-      .filter(match => showScheduled ? !match.isFinished : match.isFinished) // Toggle based on state
-      .sort((a, b) => new Date(showScheduled ? a.date : b.date) - new Date(showScheduled ? b.date : a.date)); // Upcoming first for scheduled, recent first for history
-
-    // Filter by match type
-    if (filterType !== 'all') {
-      filtered = filtered.filter(match => match.matchType === filterType);
-    }
-
-    // Filter by result (only for finished matches)
-    if (!showScheduled && filterResult !== 'all') {
-      filtered = filtered.filter(match => {
-        const result = getMatchResult(match.goalsFor, match.goalsAgainst);
-        return result === filterResult;
-      });
-    }
-
-    return filtered;
-  }, [matches, filterType, filterResult, showScheduled]);
-
-  // Calculate stats
+  // Calculate stats from all matches (fetch separately if needed)
   const stats = useMemo(() => {
-    const completed = matches.filter(m => m.isFinished);
-    const wins = completed.filter(m => getMatchResult(m.goalsFor, m.goalsAgainst) === 'win').length;
-    const draws = completed.filter(m => getMatchResult(m.goalsFor, m.goalsAgainst) === 'draw').length;
-    const losses = completed.filter(m => getMatchResult(m.goalsFor, m.goalsAgainst) === 'loss').length;
+    const completed = filteredMatches.filter((m) => m.isFinished);
+    const wins = completed.filter(
+      (m) => getMatchResult(m.goalsFor, m.goalsAgainst) === "win"
+    ).length;
+    const draws = completed.filter(
+      (m) => getMatchResult(m.goalsFor, m.goalsAgainst) === "draw"
+    ).length;
+    const losses = completed.filter(
+      (m) => getMatchResult(m.goalsFor, m.goalsAgainst) === "loss"
+    ).length;
     const totalGoalsFor = completed.reduce((sum, m) => sum + m.goalsFor, 0);
-    const totalGoalsAgainst = completed.reduce((sum, m) => sum + m.goalsAgainst, 0);
+    const totalGoalsAgainst = completed.reduce(
+      (sum, m) => sum + m.goalsAgainst,
+      0
+    );
 
     return {
       total: completed.length,
@@ -65,249 +143,359 @@ const HistoryScreen = ({ navigation }) => {
       goalsFor: totalGoalsFor,
       goalsAgainst: totalGoalsAgainst,
     };
-  }, [matches]);
+  }, [filteredMatches]);
 
-  const handleMatchPress = (match) => {
-    navigation.navigate('MatchDetails', { matchId: match.id });
-  };
+  const handleMatchPress = useCallback(
+    (match) => {
+      navigation.navigate("MatchDetails", { matchId: match.id });
+    },
+    [navigation]
+  );
 
-  if (loading && matches.length === 0) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading matches...</Text>
+  const handleClearFilters = useCallback(() => {
+    setFilterType("all");
+    setFilterVenue("all");
+  }, []);
+
+  const handleApplyFilters = useCallback(() => {
+    setFilterModalVisible(false);
+  }, []);
+
+  // FlatList optimization: getItemLayout for better scroll performance
+  const getItemLayout = useCallback(
+    (data, index) => ({
+      length: 120, // Approximate height of match card
+      offset: 120 * index,
+      index,
+    }),
+    []
+  );
+
+  const keyExtractor = useCallback((item) => item.id, []);
+
+  const renderItem = useCallback(
+    ({ item }) => <MatchCard match={item} onPress={handleMatchPress} />,
+    [handleMatchPress]
+  );
+
+  const ListHeaderComponent = useMemo(
+    () => (
+      <View>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={COLORS.textSecondary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search matches by opponent..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color={COLORS.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Stats Summary */}
+        {stats.total > 0 && (
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats.wins}</Text>
+              <Text style={styles.statLabel}>Wins</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: COLORS.warning }]}>
+                {stats.draws}
+              </Text>
+              <Text style={styles.statLabel}>Draws</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: COLORS.error }]}>
+                {stats.losses}
+              </Text>
+              <Text style={styles.statLabel}>Losses</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats.goalsFor}</Text>
+              <Text style={styles.statLabel}>Goals</Text>
+            </View>
+          </View>
+        )}
       </View>
-    );
-  }
+    ),
+    [searchQuery, stats]
+  );
+
+  const ListEmptyComponent = useMemo(
+    () => (
+      <View style={styles.emptyContainer}>
+        <Ionicons
+          name="calendar-outline"
+          size={64}
+          color={COLORS.textSecondary}
+        />
+        <Text style={styles.emptyText}>
+          {loading ? "Loading matches..." : "No matches found"}
+        </Text>
+        {!loading && searchQuery && (
+          <Text style={styles.emptySubtext}>Try adjusting your search</Text>
+        )}
+        {!loading && !showScheduled && filteredMatches.length === 0 && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => navigation.navigate("AddMatch")}
+          >
+            <Text style={styles.addButtonText}>+ Add First Match</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    ),
+    [loading, searchQuery, showScheduled, filteredMatches.length, navigation]
+  );
 
   return (
     <View style={styles.container}>
       {/* Toggle between Scheduled and History */}
       <View style={styles.toggleContainer}>
         <TouchableOpacity
-          style={[styles.toggleButton, !showScheduled && styles.toggleButtonActive]}
+          style={[
+            styles.toggleButton,
+            !showScheduled && styles.toggleButtonActive,
+          ]}
           onPress={() => setShowScheduled(false)}
         >
-          <Text style={[styles.toggleText, !showScheduled && styles.toggleTextActive]}>
+          <Text
+            style={[
+              styles.toggleButtonText,
+              !showScheduled && styles.toggleButtonTextActive,
+            ]}
+          >
             History
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.toggleButton, showScheduled && styles.toggleButtonActive]}
+          style={[
+            styles.toggleButton,
+            showScheduled && styles.toggleButtonActive,
+          ]}
           onPress={() => setShowScheduled(true)}
         >
-          <Text style={[styles.toggleText, showScheduled && styles.toggleTextActive]}>
+          <Text
+            style={[
+              styles.toggleButtonText,
+              showScheduled && styles.toggleButtonTextActive,
+            ]}
+          >
             Scheduled
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Stats Summary - Only show for finished matches */}
-      {!showScheduled && (
-        <View style={styles.statsContainer}>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{stats.total}</Text>
-            <Text style={styles.statLabel}>Matches</Text>
-          </View>
-          <View style={[styles.statBox, styles.statBoxBorder]}>
-            <Text style={[styles.statValue, { color: COLORS.success }]}>{stats.wins}</Text>
-            <Text style={styles.statLabel}>Wins</Text>
-          </View>
-          <View style={[styles.statBox, styles.statBoxBorder]}>
-            <Text style={[styles.statValue, { color: COLORS.warning }]}>{stats.draws}</Text>
-            <Text style={styles.statLabel}>Draws</Text>
-          </View>
-          <View style={[styles.statBox, styles.statBoxBorder]}>
-            <Text style={[styles.statValue, { color: COLORS.error }]}>{stats.losses}</Text>
-            <Text style={styles.statLabel}>Losses</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Filters */}
-      <View style={styles.filtersContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {/* Match Type Filters */}
-          <TouchableOpacity
-            style={[styles.filterChip, filterType === 'all' && styles.filterChipActive]}
-            onPress={() => setFilterType('all')}
-          >
-            <Text style={[styles.filterText, filterType === 'all' && styles.filterTextActive]}>
-              All Matches
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterChip, filterType === MATCH_TYPES.LEAGUE && styles.filterChipActive]}
-            onPress={() => setFilterType(MATCH_TYPES.LEAGUE)}
-          >
-            <Text style={[styles.filterText, filterType === MATCH_TYPES.LEAGUE && styles.filterTextActive]}>
-              League
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterChip, filterType === MATCH_TYPES.CUP && styles.filterChipActive]}
-            onPress={() => setFilterType(MATCH_TYPES.CUP)}
-          >
-            <Text style={[styles.filterText, filterType === MATCH_TYPES.CUP && styles.filterTextActive]}>
-              Cup
-            </Text>
-          </TouchableOpacity>
-
-          {/* Result Filters - Only show for finished matches */}
-          {!showScheduled && (
-            <>
-              <View style={styles.filterSeparator} />
-
-              <TouchableOpacity
-                style={[styles.filterChip, filterResult === 'all' && styles.filterChipActive]}
-                onPress={() => setFilterResult('all')}
-              >
-                <Text style={[styles.filterText, filterResult === 'all' && styles.filterTextActive]}>
-                  All Results
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.filterChip, filterResult === 'win' && styles.filterChipActive]}
-                onPress={() => setFilterResult('win')}
-              >
-                <Text style={[styles.filterText, filterResult === 'win' && styles.filterTextActive]}>
-                  Wins
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.filterChip, filterResult === 'draw' && styles.filterChipActive]}
-                onPress={() => setFilterResult('draw')}
-              >
-                <Text style={[styles.filterText, filterResult === 'draw' && styles.filterTextActive]}>
-                  Draws
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.filterChip, filterResult === 'loss' && styles.filterChipActive]}
-                onPress={() => setFilterResult('loss')}
-              >
-                <Text style={[styles.filterText, filterResult === 'loss' && styles.filterTextActive]}>
-                  Losses
-                </Text>
-              </TouchableOpacity>
-            </>
+      {/* Filter Button */}
+      <View style={styles.filterButtonContainer}>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setFilterModalVisible(true)}
+        >
+          <Ionicons name="filter" size={20} color={COLORS.primary} />
+          <Text style={styles.filterButtonText}>Filters</Text>
+          {activeFilterCount > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+            </View>
           )}
-        </ScrollView>
+        </TouchableOpacity>
       </View>
 
-      {/* Matches List */}
-      <ScrollView
-        style={styles.matchesList}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+      {/* Filter Modal */}
+      <Modal
+        visible={filterModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setFilterModalVisible(false)}
       >
-        {filteredMatches.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No matches found</Text>
-            <Text style={styles.emptySubtext}>
-              {filterType !== 'all' || filterResult !== 'all'
-                ? 'Try adjusting your filters'
-                : 'Your match history will appear here'}
-            </Text>
-          </View>
-        ) : (
-          filteredMatches.map((match) => {
-            const result = getMatchResult(match.goalsFor, match.goalsAgainst);
-            const resultColor = getResultColor(result);
-
-            return (
-              <TouchableOpacity
-                key={match.id}
-                style={styles.matchCard}
-                onPress={() => handleMatchPress(match)}
-              >
-                <View style={styles.matchHeader}>
-                  <Text style={styles.matchDate}>{formatDate(match.date)}</Text>
-                  <View style={styles.matchTypeBadge}>
-                    {match.matchType === MATCH_TYPES.CUP ? (
-                      <View style={styles.badgeContent}>
-                        <Ionicons name="trophy" size={14} color="#FFD700" />
-                        <Text style={styles.matchTypeText}>Cup</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.badgeContent}>
-                        <Ionicons name="football" size={14} color={COLORS.primary} />
-                        <Text style={styles.matchTypeText}>League</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-
-                <View style={styles.matchContent}>
-                  <View style={styles.matchInfo}>
-                    <Text style={styles.opponent}>{match.opponent}</Text>
-                    <View style={styles.venueRow}>
-                      <Ionicons 
-                        name={match.venue === VENUE_TYPES.HOME ? "home" : "airplane"} 
-                        size={14} 
-                        color={COLORS.textSecondary} 
-                      />
-                      <Text style={styles.venue}>
-                        {match.venue === VENUE_TYPES.HOME ? 'Home' : 'Away'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.scoreContainer}>
-                    {!showScheduled ? (
-                      <>
-                        <View style={[styles.resultBadge, { backgroundColor: resultColor }]}>
-                          <Text style={styles.resultText}>{result.toUpperCase()}</Text>
-                        </View>
-                        <Text style={styles.score}>
-                          {match.goalsFor} - {match.goalsAgainst}
-                        </Text>
-                      </>
-                    ) : (
-                      <View style={styles.scheduledBadge}>
-                        <Ionicons name="calendar-outline" size={16} color={COLORS.primary} />
-                        <Text style={styles.scheduledText}>Scheduled</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-
-                {match.team && (
-                  <Text style={styles.teamName}>Team: {match.team.name}</Text>
-                )}
-
-                {/* Player Stats */}
-                {match.playerStats && match.playerStats.length > 0 && (
-                  <View style={styles.playerStatsContainer}>
-                    {match.playerStats
-                      .filter(stat => stat.goals > 0 || stat.assists > 0)
-                      .map(stat => (
-                        <View key={stat.id} style={styles.playerStatRow}>
-                          <Text style={styles.playerStatName}>{stat.player.name}</Text>
-                          <View style={styles.playerStatNumbers}>
-                            {stat.goals > 0 && (
-                              <View style={styles.statBadge}>
-                                <Ionicons name="football" size={12} color={COLORS.primary} />
-                                <Text style={styles.playerStatItem}>{stat.goals}</Text>
-                              </View>
-                            )}
-                            {stat.assists > 0 && (
-                              <View style={styles.statBadge}>
-                                <Ionicons name="flash" size={12} color="#FFA500" />
-                                <Text style={styles.playerStatItem}>{stat.assists}</Text>
-                              </View>
-                            )}
-                          </View>
-                        </View>
-                      ))}
-                  </View>
-                )}
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Filters</Text>
+              <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>
-            );
-          })
-        )}
-      </ScrollView>
+            </View>
+
+            {/* Match Type Filter */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Match Type</Text>
+              <View style={styles.filterOptions}>
+                <TouchableOpacity
+                  style={[
+                    styles.filterOption,
+                    filterType === "all" && styles.filterOptionActive,
+                  ]}
+                  onPress={() => setFilterType("all")}
+                >
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      filterType === "all" && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    All
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.filterOption,
+                    filterType === "league" && styles.filterOptionActive,
+                  ]}
+                  onPress={() => setFilterType("league")}
+                >
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      filterType === "league" && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    League
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.filterOption,
+                    filterType === "cup" && styles.filterOptionActive,
+                  ]}
+                  onPress={() => setFilterType("cup")}
+                >
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      filterType === "cup" && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    Cup
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.filterOption,
+                    filterType === "friendly" && styles.filterOptionActive,
+                  ]}
+                  onPress={() => setFilterType("friendly")}
+                >
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      filterType === "friendly" &&
+                        styles.filterOptionTextActive,
+                    ]}
+                  >
+                    Friendly
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Venue Filter */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Venue</Text>
+              <View style={styles.filterOptions}>
+                <TouchableOpacity
+                  style={[
+                    styles.filterOption,
+                    filterVenue === "all" && styles.filterOptionActive,
+                  ]}
+                  onPress={() => setFilterVenue("all")}
+                >
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      filterVenue === "all" && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    All
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.filterOption,
+                    filterVenue === "home" && styles.filterOptionActive,
+                  ]}
+                  onPress={() => setFilterVenue("home")}
+                >
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      filterVenue === "home" && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    Home
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.filterOption,
+                    filterVenue === "away" && styles.filterOptionActive,
+                  ]}
+                  onPress={() => setFilterVenue("away")}
+                >
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      filterVenue === "away" && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    Away
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Modal Actions */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.clearButton]}
+                onPress={handleClearFilters}
+              >
+                <Text style={styles.clearButtonText}>Clear All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.applyButton]}
+                onPress={handleApplyFilters}
+              >
+                <Text style={styles.applyButtonText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* FlatList for better performance */}
+      <FlatList
+        data={filteredMatches}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        getItemLayout={getItemLayout}
+        ListHeaderComponent={ListHeaderComponent}
+        ListEmptyComponent={ListEmptyComponent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+          />
+        }
+        contentContainerStyle={styles.listContent}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
+      />
     </View>
   );
 };
@@ -317,11 +505,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  listContent: {
+    paddingBottom: 20,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    marginHorizontal: 15,
+    marginTop: 15,
+    marginBottom: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 16,
+    color: COLORS.text,
+  },
   toggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    backgroundColor: "#fff",
     padding: 15,
     gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
   },
   toggleButton: {
     flex: 1,
@@ -330,53 +542,42 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.gray[300],
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    alignItems: "center",
+    backgroundColor: "#fff",
   },
   toggleButtonActive: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
-  toggleText: {
+  toggleButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.textSecondary,
   },
-  toggleTextActive: {
-    color: '#fff',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: COLORS.textSecondary,
+  toggleButtonTextActive: {
+    color: "#fff",
   },
   statsContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: 15,
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+    marginHorizontal: 15,
+    marginBottom: 10,
+    borderRadius: 10,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  statBox: {
+  statItem: {
     flex: 1,
-    alignItems: 'center',
-  },
-  statBoxBorder: {
-    borderLeftWidth: 1,
-    borderLeftColor: COLORS.gray[200],
+    alignItems: "center",
   },
   statValue: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.primary,
     marginBottom: 5,
   },
@@ -384,12 +585,175 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
   },
+  filterButtonContainer: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
+  },
+  filterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    backgroundColor: "#fff",
+  },
+  filterButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.primary,
+    marginLeft: 8,
+  },
+  filterBadge: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  filterBadgeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: COLORS.text,
+  },
+  filterSection: {
+    marginBottom: 25,
+  },
+  filterSectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  filterOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  filterOption: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.gray[300],
+    backgroundColor: "#fff",
+  },
+  filterOptionActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  filterOptionText: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: "500",
+  },
+  filterOptionTextActive: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  clearButton: {
+    backgroundColor: COLORS.gray[200],
+  },
+  clearButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+  applyButton: {
+    backgroundColor: COLORS.primary,
+  },
+  applyButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+  },
   filtersContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray[200],
+    minHeight: 50,
+  },
+  activeFiltersContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  activeFilterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.gray[100],
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  activeFilterChipText: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: "500",
+  },
+  filtersContainer: {
+    backgroundColor: "#fff",
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
+    minHeight: 50,
+  },
+  filterGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginRight: 10,
+    minWidth: 50,
   },
   filterChip: {
     paddingHorizontal: 15,
@@ -401,172 +765,111 @@ const styles = StyleSheet.create({
   filterChipActive: {
     backgroundColor: COLORS.primary,
   },
-  filterText: {
+  filterChipText: {
     fontSize: 14,
     color: COLORS.text,
-    fontWeight: '500',
+    fontWeight: "500",
   },
-  filterTextActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  filterSeparator: {
-    width: 1,
-    backgroundColor: COLORS.gray[300],
-    marginHorizontal: 10,
-  },
-  matchesList: {
-    flex: 1,
-    padding: 15,
+  filterChipTextActive: {
+    color: "#fff",
+    fontWeight: "600",
   },
   matchCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 15,
+    marginHorizontal: 15,
     marginBottom: 12,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   matchHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
+  },
+  matchOpponent: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: COLORS.text,
+  },
+  resultBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  resultText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  matchRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  matchInfo: {
+    flex: 1,
+  },
+  matchInfoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
   },
   matchDate: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+    marginLeft: 5,
   },
   matchTypeBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     backgroundColor: COLORS.gray[100],
-  },
-  badgeContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    marginTop: 4,
+    alignSelf: "flex-start",
   },
   matchTypeText: {
     fontSize: 12,
-    fontWeight: '600',
-  },
-  matchContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  matchInfo: {
-    flex: 1,
-  },
-  opponent: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "600",
     color: COLORS.text,
-    marginBottom: 5,
-  },
-  venue: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  venueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  scoreContainer: {
-    alignItems: 'flex-end',
-  },
-  resultBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 5,
-  },
-  resultText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#fff',
   },
   score: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
-  },
-  scheduledBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: COLORS.gray[100],
-  },
-  scheduledText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
-  teamName: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
-  },
-  playerStatsContainer: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
-  },
-  playerStatRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  playerStatName: {
-    fontSize: 14,
-    color: COLORS.text,
-    fontWeight: '500',
-    flex: 1,
-  },
-  playerStatNumbers: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  statBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  playerStatItem: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    marginLeft: 8,
   },
   emptyContainer: {
     padding: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.textSecondary,
+    marginTop: 15,
     marginBottom: 5,
   },
   emptySubtext: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
+  },
+  addButton: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
 

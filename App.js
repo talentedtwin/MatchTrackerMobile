@@ -11,6 +11,8 @@ import {
 import { ClerkProvider } from '@clerk/clerk-expo';
 import * as SecureStore from 'expo-secure-store';
 import AppNavigator from './src/navigation/AppNavigator';
+import { PostHogProvider } from 'posthog-react-native';
+import { TeamProvider } from './src/contexts/TeamContext';
 
 // Token cache for Clerk
 const tokenCache = {
@@ -31,6 +33,7 @@ const tokenCache = {
 };
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
 
 if (!publishableKey) {
   throw new Error(
@@ -54,10 +57,39 @@ export default function App() {
     );
   }
 
-  return (
+  // Wrap app with PostHog only if API key is available
+  const AppContent = (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <AppNavigator />
-      <StatusBar style="auto" />
+      <TeamProvider>
+        <AppNavigator />
+        <StatusBar style="auto" />
+      </TeamProvider>
     </ClerkProvider>
   );
+
+  // If PostHog API key is available, wrap with PostHogProvider
+  if (posthogApiKey) {
+    return (
+      <PostHogProvider 
+        apiKey={posthogApiKey} 
+        options={{
+          host: "https://eu.i.posthog.com",
+        }} 
+        autocapture={{
+          captureTouches: true,
+          captureScreens: false, // Disabled to prevent navigation errors
+          ignoreLabels: [],
+          customLabelProp: "ph-label",
+          maxElementsCaptured: 20,
+          noCaptureProp: "ph-no-capture"
+        }}
+      >
+        {AppContent}
+      </PostHogProvider>
+    );
+  }
+
+  // If no PostHog key, return app without analytics
+  console.warn('PostHog API key not found. Analytics disabled.');
+  return AppContent;
 }

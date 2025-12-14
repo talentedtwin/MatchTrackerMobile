@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,34 +10,44 @@ import {
   ActivityIndicator,
   Modal,
   Share,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useMatches, usePlayers } from '../hooks/useResources';
-import { COLORS, MATCH_TYPES, VENUE_TYPES } from '../config/constants';
-import { formatDateTime, getMatchResult, getResultColor, getPlayerById } from '../utils/helpers';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useMatches, usePlayers } from "../hooks/useResources";
+import { COLORS, MATCH_TYPES, VENUE_TYPES } from "../config/constants";
+import {
+  formatDateTime,
+  getMatchResult,
+  getResultColor,
+  getPlayerById,
+} from "../utils/helpers";
 
 const MatchDetailsScreen = ({ route, navigation }) => {
   const { matchId } = route.params;
-  const { matches, loading: matchesLoading, updateMatch, removeMatch } = useMatches();
-  const { players, loading: playersLoading } = usePlayers();
-  
+  const {
+    matches,
+    loading: matchesLoading,
+    updateMatch,
+    removeMatch,
+  } = useMatches(null);
+  const { players, loading: playersLoading } = usePlayers(null);
+
   const [match, setMatch] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  
+
   // Edit form state
-  const [opponent, setOpponent] = useState('');
-  const [goalsFor, setGoalsFor] = useState('0');
-  const [goalsAgainst, setGoalsAgainst] = useState('0');
+  const [opponent, setOpponent] = useState("");
+  const [goalsFor, setGoalsFor] = useState("0");
+  const [goalsAgainst, setGoalsAgainst] = useState("0");
   const [venue, setVenue] = useState(VENUE_TYPES.HOME);
   const [matchType, setMatchType] = useState(MATCH_TYPES.LEAGUE);
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState("");
   const [playerStats, setPlayerStats] = useState({});
 
   const loading = matchesLoading || playersLoading;
 
   useEffect(() => {
-    const foundMatch = matches.find(m => m.id === matchId);
+    const foundMatch = matches.find((m) => m.id === matchId);
     if (foundMatch) {
       setMatch(foundMatch);
       setOpponent(foundMatch.opponent);
@@ -45,12 +55,12 @@ const MatchDetailsScreen = ({ route, navigation }) => {
       setGoalsAgainst(foundMatch.goalsAgainst.toString());
       setVenue(foundMatch.venue);
       setMatchType(foundMatch.matchType);
-      setNotes(foundMatch.notes || '');
-      
+      setNotes(foundMatch.notes || "");
+
       // Initialize player stats from match
       const stats = {};
       if (foundMatch.playerStats && foundMatch.playerStats.length > 0) {
-        foundMatch.playerStats.forEach(stat => {
+        foundMatch.playerStats.forEach((stat) => {
           stats[stat.playerId] = {
             goals: stat.goals || 0,
             assists: stat.assists || 0,
@@ -66,7 +76,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
   };
 
   const updatePlayerStat = (playerId, field, value) => {
-    setPlayerStats(prev => ({
+    setPlayerStats((prev) => ({
       ...prev,
       [playerId]: {
         ...prev[playerId],
@@ -77,7 +87,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
 
   const handleSaveMatch = async () => {
     if (!opponent.trim()) {
-      Alert.alert('Error', 'Please enter opponent name');
+      Alert.alert("Error", "Please enter opponent name");
       return;
     }
 
@@ -85,15 +95,21 @@ const MatchDetailsScreen = ({ route, navigation }) => {
     const goalsAgainstNum = parseInt(goalsAgainst) || 0;
 
     // Validate that player goals don't exceed team total
-    const totalPlayerGoals = Object.values(playerStats).reduce((sum, stat) => sum + (stat.goals || 0), 0);
+    const totalPlayerGoals = Object.values(playerStats).reduce(
+      (sum, stat) => sum + (stat.goals || 0),
+      0
+    );
     if (totalPlayerGoals > goalsForNum) {
-      Alert.alert('Validation Error', `Total player goals (${totalPlayerGoals}) cannot exceed team goals (${goalsForNum})`);
+      Alert.alert(
+        "Validation Error",
+        `Total player goals (${totalPlayerGoals}) cannot exceed team goals (${goalsForNum})`
+      );
       return;
     }
 
     try {
       // Prepare player stats array
-      const playerStatsArray = Object.keys(playerStats).map(playerId => ({
+      const playerStatsArray = Object.keys(playerStats).map((playerId) => ({
         playerId,
         goals: playerStats[playerId].goals || 0,
         assists: playerStats[playerId].assists || 0,
@@ -110,28 +126,28 @@ const MatchDetailsScreen = ({ route, navigation }) => {
       });
       setEditModalVisible(false);
       setIsEditing(false);
-      Alert.alert('Success', 'Match updated successfully');
+      Alert.alert("Success", "Match updated successfully");
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to update match');
+      Alert.alert("Error", error.message || "Failed to update match");
     }
   };
 
   const handleDeleteMatch = () => {
     Alert.alert(
-      'Delete Match',
-      'Are you sure you want to delete this match? This action cannot be undone.',
+      "Delete Match",
+      "Are you sure you want to delete this match? This action cannot be undone.",
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: async () => {
             try {
               await removeMatch(matchId);
               navigation.goBack();
-              Alert.alert('Success', 'Match deleted successfully');
+              Alert.alert("Success", "Match deleted successfully");
             } catch (error) {
-              Alert.alert('Error', error.message || 'Failed to delete match');
+              Alert.alert("Error", error.message || "Failed to delete match");
             }
           },
         },
@@ -140,24 +156,20 @@ const MatchDetailsScreen = ({ route, navigation }) => {
   };
 
   const handleFinishMatch = async () => {
-    Alert.alert(
-      'Finish Match',
-      'Mark this match as played?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Finish',
-          onPress: async () => {
-            try {
-              await updateMatch(matchId, { isFinished: true });
-              Alert.alert('Success', 'Match marked as played');
-            } catch (error) {
-              Alert.alert('Error', error.message || 'Failed to finish match');
-            }
-          },
+    Alert.alert("Finish Match", "Mark this match as played?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Finish",
+        onPress: async () => {
+          try {
+            await updateMatch(matchId, { isFinished: true });
+            Alert.alert("Success", "Match marked as played");
+          } catch (error) {
+            Alert.alert("Error", error.message || "Failed to finish match");
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleShareMatch = async () => {
@@ -167,34 +179,54 @@ const MatchDetailsScreen = ({ route, navigation }) => {
       // Build share message
       let message = `🏆 Match Details\n\n`;
       message += `📅 ${formatDateTime(match.date)}\n`;
-      message += `📍 ${match.venue === VENUE_TYPES.HOME ? 'Home' : 'Away'}\n`;
-      message += `${match.matchType === MATCH_TYPES.CUP ? '🏆 Cup' : '⚽ League'}\n\n`;
+      message += `📍 ${match.venue === VENUE_TYPES.HOME ? "Home" : "Away"}\n`;
+      message += `${
+        match.matchType === MATCH_TYPES.CUP
+          ? "🏆 Cup"
+          : match.matchType === MATCH_TYPES.FRIENDLY
+          ? "🤝 Friendly"
+          : "⚽ League"
+      }\n\n`;
 
       message += `Opponent: ${match.opponent}\n`;
 
       if (match.isFinished) {
         const result = getMatchResult(match.goalsFor, match.goalsAgainst);
-        const resultEmoji = result === 'win' ? '🎉' : result === 'loss' ? '😔' : '🤝';
+        const resultEmoji =
+          result === "win" ? "🎉" : result === "loss" ? "😔" : "🤝";
         message += `\n${resultEmoji} Result: ${result.toUpperCase()}\n`;
         message += `Score: ${match.goalsFor} - ${match.goalsAgainst}\n`;
-        
+
         // Add player stats if available
         if (playersWithStats.length > 0) {
-          const scorers = playersWithStats.filter(p => p.goals > 0 || p.assists > 0);
+          const scorers = playersWithStats.filter(
+            (p) =>
+              p.goals > 0 ||
+              p.assists > 0 ||
+              (p.minutesPlayed && p.minutesPlayed > 0)
+          );
           if (scorers.length > 0) {
             message += `\n⭐ Player Statistics:\n`;
-            scorers.forEach(player => {
+            scorers.forEach((player) => {
               const stats = [];
-              if (player.goals > 0) stats.push(`${player.goals} goal${player.goals > 1 ? 's' : ''}`);
-              if (player.assists > 0) stats.push(`${player.assists} assist${player.assists > 1 ? 's' : ''}`);
-              message += `${player.name}: ${stats.join(', ')}\n`;
+              //don't show minutes played
+              //if (player.minutesPlayed && player.minutesPlayed > 0) stats.push(`${player.minutesPlayed} min`);
+              if (player.goals > 0)
+                stats.push(
+                  `${player.goals} goal${player.goals > 1 ? "s" : ""}`
+                );
+              if (player.assists > 0)
+                stats.push(
+                  `${player.assists} assist${player.assists > 1 ? "s" : ""}`
+                );
+              message += `${player.name}: ${stats.join(", ")}\n`;
             });
           }
         }
       } else {
         message += `\n⏰ Scheduled Match\n`;
       }
-      
+
       if (match.notes) {
         message += `\n📝 Notes: ${match.notes}\n`;
       }
@@ -206,8 +238,8 @@ const MatchDetailsScreen = ({ route, navigation }) => {
         title: `Match vs ${match.opponent}`,
       });
     } catch (error) {
-      console.error('Error sharing match:', error);
-      Alert.alert('Error', 'Failed to share match details');
+      console.error("Error sharing match:", error);
+      Alert.alert("Error", "Failed to share match details");
     }
   };
 
@@ -220,13 +252,15 @@ const MatchDetailsScreen = ({ route, navigation }) => {
     );
   }
 
-  const result = match.isFinished ? getMatchResult(match.goalsFor, match.goalsAgainst) : null;
+  const result = match.isFinished
+    ? getMatchResult(match.goalsFor, match.goalsAgainst)
+    : null;
   const resultColor = result ? getResultColor(result) : null;
 
   // Get player stats for this match
   const matchPlayerStats = match.playerStats || [];
   const playersWithStats = matchPlayerStats
-    .map(stat => {
+    .map((stat) => {
       const player = getPlayerById(players, stat.playerId);
       return player ? { ...player, ...stat } : null;
     })
@@ -246,22 +280,33 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                     <Ionicons name="trophy" size={14} color="#FFD700" />
                     <Text style={styles.badgeText}>Cup</Text>
                   </View>
+                ) : match.matchType === MATCH_TYPES.FRIENDLY ? (
+                  <View style={styles.badgeContent}>
+                    <Ionicons name="happy" size={14} color={COLORS.success} />
+                    <Text style={styles.badgeText}>Friendly</Text>
+                  </View>
                 ) : (
                   <View style={styles.badgeContent}>
-                    <Ionicons name="football" size={14} color={COLORS.primary} />
+                    <Ionicons
+                      name="football"
+                      size={14}
+                      color={COLORS.primary}
+                    />
                     <Text style={styles.badgeText}>League</Text>
                   </View>
                 )}
               </View>
               <View style={styles.badge}>
                 <View style={styles.badgeContent}>
-                  <Ionicons 
-                    name={match.venue === VENUE_TYPES.HOME ? "home" : "airplane"} 
-                    size={14} 
-                    color={COLORS.textSecondary} 
+                  <Ionicons
+                    name={
+                      match.venue === VENUE_TYPES.HOME ? "home" : "airplane"
+                    }
+                    size={14}
+                    color={COLORS.textSecondary}
                   />
                   <Text style={styles.badgeText}>
-                    {match.venue === VENUE_TYPES.HOME ? 'Home' : 'Away'}
+                    {match.venue === VENUE_TYPES.HOME ? "Home" : "Away"}
                   </Text>
                 </View>
               </View>
@@ -269,14 +314,16 @@ const MatchDetailsScreen = ({ route, navigation }) => {
           </View>
 
           <Text style={styles.opponent}>{match.opponent}</Text>
-          
+
           {match.team && (
             <Text style={styles.teamName}>Team: {match.team.name}</Text>
           )}
 
           {match.isFinished ? (
             <View style={styles.scoreSection}>
-              <View style={[styles.resultBadge, { backgroundColor: resultColor }]}>
+              <View
+                style={[styles.resultBadge, { backgroundColor: resultColor }]}
+              >
                 <Text style={styles.resultText}>{result.toUpperCase()}</Text>
               </View>
               <Text style={styles.score}>
@@ -305,16 +352,33 @@ const MatchDetailsScreen = ({ route, navigation }) => {
         {match.isFinished && playersWithStats.length > 0 && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Player Statistics</Text>
-            
+
             {playersWithStats.map((player) => (
               <View key={player.id} style={styles.playerStatRow}>
                 <View style={styles.playerInfo}>
                   <Text style={styles.playerName}>{player.name}</Text>
                 </View>
                 <View style={styles.playerStats}>
+                  {player.minutesPlayed !== undefined &&
+                    player.minutesPlayed > 0 && (
+                      <View style={styles.statBadge}>
+                        <Ionicons
+                          name="time-outline"
+                          size={14}
+                          color={COLORS.primary}
+                        />
+                        <Text style={styles.statBadgeText}>
+                          {player.minutesPlayed}'
+                        </Text>
+                      </View>
+                    )}
                   {player.goals > 0 && (
                     <View style={styles.statBadge}>
-                      <Ionicons name="football" size={14} color={COLORS.primary} />
+                      <Ionicons
+                        name="football"
+                        size={14}
+                        color={COLORS.primary}
+                      />
                       <Text style={styles.statBadgeText}>{player.goals}</Text>
                     </View>
                   )}
@@ -324,9 +388,12 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                       <Text style={styles.statBadgeText}>{player.assists}</Text>
                     </View>
                   )}
-                  {player.goals === 0 && player.assists === 0 && (
-                    <Text style={styles.noStats}>-</Text>
-                  )}
+                  {(player.minutesPlayed === 0 ||
+                    player.minutesPlayed === undefined) &&
+                    player.goals === 0 &&
+                    player.assists === 0 && (
+                      <Text style={styles.noStats}>-</Text>
+                    )}
                 </View>
               </View>
             ))}
@@ -336,28 +403,32 @@ const MatchDetailsScreen = ({ route, navigation }) => {
         {/* Match Information */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Match Information</Text>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Date & Time</Text>
             <Text style={styles.infoValue}>{formatDateTime(match.date)}</Text>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Opponent</Text>
             <Text style={styles.infoValue}>{match.opponent}</Text>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Venue</Text>
             <Text style={styles.infoValue}>
-              {match.venue === VENUE_TYPES.HOME ? 'Home' : 'Away'}
+              {match.venue === VENUE_TYPES.HOME ? "Home" : "Away"}
             </Text>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Match Type</Text>
             <Text style={styles.infoValue}>
-              {match.matchType === MATCH_TYPES.CUP ? 'Cup' : 'League'}
+              {match.matchType === MATCH_TYPES.CUP
+                ? "Cup"
+                : match.matchType === MATCH_TYPES.FRIENDLY
+                ? "Friendly"
+                : "League"}
             </Text>
           </View>
 
@@ -374,7 +445,11 @@ const MatchDetailsScreen = ({ route, navigation }) => {
           {match.isFinished ? (
             <View style={styles.actionRow}>
               <TouchableOpacity
-                style={[styles.actionButton, styles.editButton, styles.halfWidth]}
+                style={[
+                  styles.actionButton,
+                  styles.editButton,
+                  styles.halfWidth,
+                ]}
                 onPress={handleEditMatch}
               >
                 <View style={styles.actionButtonContent}>
@@ -384,7 +459,11 @@ const MatchDetailsScreen = ({ route, navigation }) => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.actionButton, styles.shareButton, styles.halfWidth]}
+                style={[
+                  styles.actionButton,
+                  styles.shareButton,
+                  styles.halfWidth,
+                ]}
                 onPress={handleShareMatch}
               >
                 <View style={styles.actionButtonContent}>
@@ -411,19 +490,23 @@ const MatchDetailsScreen = ({ route, navigation }) => {
               >
                 <View style={styles.actionButtonContent}>
                   <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                  <Text style={[styles.actionButtonText, { color: '#fff' }]}>Finish Match</Text>
+                  <Text style={[styles.actionButtonText, { color: "#fff" }]}>
+                    Finish Match
+                  </Text>
                 </View>
               </TouchableOpacity>
             </>
           )}
-          
+
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
             onPress={handleDeleteMatch}
           >
             <View style={styles.actionButtonContent}>
               <Ionicons name="trash-outline" size={18} color="#fff" />
-              <Text style={[styles.actionButtonText, { color: '#fff' }]}>Delete Match</Text>
+              <Text style={[styles.actionButtonText, { color: "#fff" }]}>
+                Delete Match
+              </Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -440,7 +523,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
           <View style={styles.modalContent}>
             <ScrollView>
               <Text style={styles.modalTitle}>Edit Match</Text>
-              
+
               <Text style={styles.label}>Opponent</Text>
               <TextInput
                 style={styles.input}
@@ -471,31 +554,55 @@ const MatchDetailsScreen = ({ route, navigation }) => {
               <Text style={styles.label}>Venue</Text>
               <View style={styles.optionRow}>
                 <TouchableOpacity
-                  style={[styles.option, venue === VENUE_TYPES.HOME && styles.optionSelected]}
+                  style={[
+                    styles.option,
+                    venue === VENUE_TYPES.HOME && styles.optionSelected,
+                  ]}
                   onPress={() => setVenue(VENUE_TYPES.HOME)}
                 >
                   <View style={styles.optionContent}>
-                    <Ionicons 
-                      name="home" 
-                      size={16} 
-                      color={venue === VENUE_TYPES.HOME ? '#fff' : COLORS.textSecondary} 
+                    <Ionicons
+                      name="home"
+                      size={16}
+                      color={
+                        venue === VENUE_TYPES.HOME
+                          ? "#fff"
+                          : COLORS.textSecondary
+                      }
                     />
-                    <Text style={[styles.optionText, venue === VENUE_TYPES.HOME && styles.optionTextSelected]}>
+                    <Text
+                      style={[
+                        styles.optionText,
+                        venue === VENUE_TYPES.HOME && styles.optionTextSelected,
+                      ]}
+                    >
                       Home
                     </Text>
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.option, venue === VENUE_TYPES.AWAY && styles.optionSelected]}
+                  style={[
+                    styles.option,
+                    venue === VENUE_TYPES.AWAY && styles.optionSelected,
+                  ]}
                   onPress={() => setVenue(VENUE_TYPES.AWAY)}
                 >
                   <View style={styles.optionContent}>
-                    <Ionicons 
-                      name="airplane" 
-                      size={16} 
-                      color={venue === VENUE_TYPES.AWAY ? '#fff' : COLORS.textSecondary} 
+                    <Ionicons
+                      name="airplane"
+                      size={16}
+                      color={
+                        venue === VENUE_TYPES.AWAY
+                          ? "#fff"
+                          : COLORS.textSecondary
+                      }
                     />
-                    <Text style={[styles.optionText, venue === VENUE_TYPES.AWAY && styles.optionTextSelected]}>
+                    <Text
+                      style={[
+                        styles.optionText,
+                        venue === VENUE_TYPES.AWAY && styles.optionTextSelected,
+                      ]}
+                    >
                       Away
                     </Text>
                   </View>
@@ -505,32 +612,82 @@ const MatchDetailsScreen = ({ route, navigation }) => {
               <Text style={styles.label}>Match Type</Text>
               <View style={styles.optionRow}>
                 <TouchableOpacity
-                  style={[styles.option, matchType === MATCH_TYPES.LEAGUE && styles.optionSelected]}
+                  style={[
+                    styles.option,
+                    matchType === MATCH_TYPES.LEAGUE && styles.optionSelected,
+                  ]}
                   onPress={() => setMatchType(MATCH_TYPES.LEAGUE)}
                 >
                   <View style={styles.optionContent}>
-                    <Ionicons 
-                      name="football" 
-                      size={16} 
-                      color={matchType === MATCH_TYPES.LEAGUE ? '#fff' : COLORS.primary} 
+                    <Ionicons
+                      name="football"
+                      size={16}
+                      color={
+                        matchType === MATCH_TYPES.LEAGUE
+                          ? "#fff"
+                          : COLORS.primary
+                      }
                     />
-                    <Text style={[styles.optionText, matchType === MATCH_TYPES.LEAGUE && styles.optionTextSelected]}>
+                    <Text
+                      style={[
+                        styles.optionText,
+                        matchType === MATCH_TYPES.LEAGUE &&
+                          styles.optionTextSelected,
+                      ]}
+                    >
                       League
                     </Text>
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.option, matchType === MATCH_TYPES.CUP && styles.optionSelected]}
+                  style={[
+                    styles.option,
+                    matchType === MATCH_TYPES.CUP && styles.optionSelected,
+                  ]}
                   onPress={() => setMatchType(MATCH_TYPES.CUP)}
                 >
                   <View style={styles.optionContent}>
-                    <Ionicons 
-                      name="trophy" 
-                      size={16} 
-                      color={matchType === MATCH_TYPES.CUP ? '#fff' : '#FFD700'} 
+                    <Ionicons
+                      name="trophy"
+                      size={16}
+                      color={matchType === MATCH_TYPES.CUP ? "#fff" : "#FFD700"}
                     />
-                    <Text style={[styles.optionText, matchType === MATCH_TYPES.CUP && styles.optionTextSelected]}>
+                    <Text
+                      style={[
+                        styles.optionText,
+                        matchType === MATCH_TYPES.CUP &&
+                          styles.optionTextSelected,
+                      ]}
+                    >
                       Cup
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.option,
+                    matchType === MATCH_TYPES.FRIENDLY && styles.optionSelected,
+                  ]}
+                  onPress={() => setMatchType(MATCH_TYPES.FRIENDLY)}
+                >
+                  <View style={styles.optionContent}>
+                    <Ionicons
+                      name="happy"
+                      size={16}
+                      color={
+                        matchType === MATCH_TYPES.FRIENDLY
+                          ? "#fff"
+                          : COLORS.success
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.optionText,
+                        matchType === MATCH_TYPES.FRIENDLY &&
+                          styles.optionTextSelected,
+                      ]}
+                    >
+                      Friendly
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -547,50 +704,73 @@ const MatchDetailsScreen = ({ route, navigation }) => {
               />
 
               {/* Player Stats Section */}
-              {match?.selectedPlayerIds && match.selectedPlayerIds.length > 0 && (
-                <View style={styles.playerStatsSection}>
-                  <Text style={styles.label}>Player Stats</Text>
-                  <Text style={styles.helperText}>Update individual goals and assists for each player</Text>
-                  {match.selectedPlayerIds.map(playerId => {
-                    const player = players.find(p => p.id === playerId);
-                    if (!player) return null;
-                    
-                    return (
-                      <View key={playerId} style={styles.playerStatEditRow}>
-                        <Text style={styles.playerStatEditName}>{player.name}</Text>
-                        <View style={styles.playerStatEditInputs}>
-                          <View style={styles.statEditGroup}>
-                            <View style={styles.statEditLabelRow}>
-                              <Ionicons name="football" size={14} color={COLORS.primary} />
-                              <Text style={styles.statEditLabel}>Goals</Text>
+              {match?.selectedPlayerIds &&
+                match.selectedPlayerIds.length > 0 && (
+                  <View style={styles.playerStatsSection}>
+                    <Text style={styles.label}>Player Stats</Text>
+                    <Text style={styles.helperText}>
+                      Update individual goals and assists for each player
+                    </Text>
+                    {match.selectedPlayerIds.map((playerId) => {
+                      const player = players.find((p) => p.id === playerId);
+                      if (!player) return null;
+
+                      return (
+                        <View key={playerId} style={styles.playerStatEditRow}>
+                          <Text style={styles.playerStatEditName}>
+                            {player.name}
+                          </Text>
+                          <View style={styles.playerStatEditInputs}>
+                            <View style={styles.statEditGroup}>
+                              <View style={styles.statEditLabelRow}>
+                                <Ionicons
+                                  name="football"
+                                  size={14}
+                                  color={COLORS.primary}
+                                />
+                                <Text style={styles.statEditLabel}>Goals</Text>
+                              </View>
+                              <TextInput
+                                style={styles.statEditInput}
+                                value={(
+                                  playerStats[playerId]?.goals || 0
+                                ).toString()}
+                                onChangeText={(value) =>
+                                  updatePlayerStat(playerId, "goals", value)
+                                }
+                                keyboardType="numeric"
+                                placeholder="0"
+                              />
                             </View>
-                            <TextInput
-                              style={styles.statEditInput}
-                              value={(playerStats[playerId]?.goals || 0).toString()}
-                              onChangeText={(value) => updatePlayerStat(playerId, 'goals', value)}
-                              keyboardType="numeric"
-                              placeholder="0"
-                            />
-                          </View>
-                          <View style={styles.statEditGroup}>
-                            <View style={styles.statEditLabelRow}>
-                              <Ionicons name="flash" size={14} color="#FFA500" />
-                              <Text style={styles.statEditLabel}>Assists</Text>
+                            <View style={styles.statEditGroup}>
+                              <View style={styles.statEditLabelRow}>
+                                <Ionicons
+                                  name="flash"
+                                  size={14}
+                                  color="#FFA500"
+                                />
+                                <Text style={styles.statEditLabel}>
+                                  Assists
+                                </Text>
+                              </View>
+                              <TextInput
+                                style={styles.statEditInput}
+                                value={(
+                                  playerStats[playerId]?.assists || 0
+                                ).toString()}
+                                onChangeText={(value) =>
+                                  updatePlayerStat(playerId, "assists", value)
+                                }
+                                keyboardType="numeric"
+                                placeholder="0"
+                              />
                             </View>
-                            <TextInput
-                              style={styles.statEditInput}
-                              value={(playerStats[playerId]?.assists || 0).toString()}
-                              onChangeText={(value) => updatePlayerStat(playerId, 'assists', value)}
-                              keyboardType="numeric"
-                              placeholder="0"
-                            />
                           </View>
                         </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
+                      );
+                    })}
+                  </View>
+                )}
 
               <View style={styles.modalButtons}>
                 <TouchableOpacity
@@ -621,8 +801,8 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: COLORS.background,
   },
   loadingText: {
@@ -634,27 +814,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 20,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 15,
   },
   date: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   badges: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   badge: {
@@ -664,17 +844,17 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.gray[100],
   },
   badgeContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   badgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   opponent: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 5,
   },
@@ -684,9 +864,9 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   scoreSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 10,
   },
   resultBadge: {
@@ -696,12 +876,12 @@ const styles = StyleSheet.create({
   },
   resultText: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
   },
   score: {
     fontSize: 36,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
   },
   notPlayedBadge: {
@@ -709,35 +889,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 12,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginTop: 10,
   },
   notPlayedText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.textSecondary,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     marginHorizontal: 15,
     marginTop: 15,
     padding: 20,
     borderRadius: 12,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginBottom: 15,
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
   },
   notesText: {
@@ -746,9 +926,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   playerStatRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray[100],
@@ -758,11 +938,11 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
   },
   playerStats: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   statBadge: {
@@ -770,21 +950,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   statBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   noStats: {
     fontSize: 14,
     color: COLORS.textSecondary,
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray[100],
@@ -792,12 +972,12 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   infoValue: {
     fontSize: 14,
     color: COLORS.text,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   actions: {
     padding: 15,
@@ -805,18 +985,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   actionRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
   },
   actionButton: {
     padding: 15,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
   },
   actionButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   halfWidth: {
@@ -840,31 +1020,31 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#fff",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 20,
-    width: '90%',
-    maxHeight: '80%',
+    width: "90%",
+    maxHeight: "80%",
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 20,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     marginTop: 10,
     marginBottom: 8,
@@ -879,26 +1059,26 @@ const styles = StyleSheet.create({
   },
   textArea: {
     height: 100,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   scoreInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   scoreInput: {
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   scoreSeparator: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
   },
   optionRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     marginBottom: 10,
   },
@@ -908,11 +1088,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.gray[300],
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   optionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   optionSelected: {
@@ -922,11 +1102,11 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 14,
     color: COLORS.text,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   optionTextSelected: {
-    color: '#fff',
-    fontWeight: '600',
+    color: "#fff",
+    fontWeight: "600",
   },
   playerStatsSection: {
     marginTop: 15,
@@ -949,41 +1129,41 @@ const styles = StyleSheet.create({
   },
   playerStatEditName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     marginBottom: 10,
   },
   playerStatEditInputs: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
   },
   statEditGroup: {
     flex: 1,
   },
   statEditLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     marginBottom: 4,
   },
   statEditLabel: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   statEditInput: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: COLORS.gray[300],
     borderRadius: 6,
     padding: 10,
     fontSize: 16,
-    textAlign: 'center',
-    fontWeight: '600',
+    textAlign: "center",
+    fontWeight: "600",
   },
   modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 20,
     gap: 10,
   },
@@ -991,23 +1171,23 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButton: {
     backgroundColor: COLORS.warning,
   },
   cancelButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   saveButton: {
     backgroundColor: COLORS.success,
   },
   saveButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
 

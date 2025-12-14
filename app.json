@@ -2,7 +2,7 @@
   "expo": {
     "name": "MatchTrackerMobile",
     "slug": "MatchTrackerMobile",
-    "version": "1.0.0",
+    "version": "1.0.14",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,14 +15,17 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.talentedtwin.matchtrackermobile"
+      "bundleIdentifier": "com.talentedtwin.matchtrackermobile",
+      "infoPlist": {
+        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized content to you."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
-        "backgroundColor": "#2563eb",
-        "googleServicesFile": "./google-services.json"
+        "backgroundColor": "#2563eb"
       },
+      "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "permissions": [
         "NOTIFICATIONS",
@@ -44,13 +47,20 @@
           "sounds": [],
           "mode": "production"
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "extra": {
       "router": {},
       "eas": {
         "projectId": "d19ba7d5-c13e-4b22-aa7c-aab8ede3e965"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d19ba7d5-c13e-4b22-aa7c-aab8ede3e965"
     }
   }
 }

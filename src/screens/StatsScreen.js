@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMatches, usePlayers, useStats } from '../hooks/useResources';
+import { useTeamContext } from '../contexts/TeamContext';
 import { COLORS } from '../config/constants';
 import { 
   calculateWinRate, 
@@ -18,10 +19,11 @@ import {
   getMatchResult 
 } from '../utils/helpers';
 
-const StatsScreen = () => {
+const StatsScreen = ({ navigation }) => {
+  const { selectedTeamId } = useTeamContext();
   const { stats, loading: statsLoading, refetch: refetchStats } = useStats();
-  const { matches, loading: matchesLoading, refetch: refetchMatches } = useMatches();
-  const { players, loading: playersLoading, refetch: refetchPlayers } = usePlayers();
+  const { matches, loading: matchesLoading, refetch: refetchMatches } = useMatches(selectedTeamId);
+  const { players, loading: playersLoading, refetch: refetchPlayers } = usePlayers(selectedTeamId);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'players'
 
@@ -341,7 +343,11 @@ const StatsScreen = () => {
               
               {players.length > 0 ? (
                 sortPlayersByGoals(players).map((player) => (
-                  <View key={player.id} style={styles.playerRow}>
+                  <TouchableOpacity 
+                    key={player.id} 
+                    style={styles.playerRow}
+                    onPress={() => navigation.navigate('PlayerStats', { playerId: player.id })}
+                  >
                     <View style={styles.playerInfo}>
                       <Text style={styles.playerName}>{player.name}</Text>
                       {player.team && (
@@ -363,8 +369,9 @@ const StatsScreen = () => {
                         </Text>
                         <Text style={styles.playerStatLabel}>Total</Text>
                       </View>
+                      <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))
               ) : (
                 <Text style={styles.noDataText}>No players yet</Text>
