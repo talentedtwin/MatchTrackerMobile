@@ -61,8 +61,3 @@ coverage/
 # Misc
 *.log
 .cache/
-
-#.env, .env.local files contain sensitive information and should not be committed to version control.
-.env
-.env.local
-.env.example
