@@ -15,9 +15,11 @@ import { useUser } from "@clerk/clerk-expo";
 import Constants from "expo-constants";
 import { COLORS, FONTS } from "../config/constants";
 import { userApi } from "../services/api";
+import { useTheme } from "../contexts/ThemeContext";
 
 const SettingsScreen = ({ navigation }) => {
   const { user: clerkUser } = useUser();
+  const { theme, isDarkMode, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userData, setUserData] = useState(null);
@@ -72,17 +74,23 @@ const SettingsScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading settings...</Text>
+      <View
+        style={[styles.centerContainer, { backgroundColor: theme.background }]}
+      >
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+          Loading settings...
+        </Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.primary }]}>
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>Manage your account and preferences</Text>
       </View>
@@ -90,37 +98,83 @@ const SettingsScreen = ({ navigation }) => {
       {/* Profile Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="person" size={20} color={COLORS.primary} />
-          <Text style={styles.sectionTitle}>Profile</Text>
+          <Ionicons name="person" size={20} color={theme.primary} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Profile
+          </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.label}>Email</Text>
-          <Text style={styles.emailText}>
+        <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
+          <Text style={[styles.label, { color: theme.text }]}>Email</Text>
+          <Text style={[styles.emailText, { color: theme.textSecondary }]}>
             {clerkUser?.primaryEmailAddress?.emailAddress}
           </Text>
 
-          <Text style={styles.label}>Name</Text>
-          <Text style={styles.emailText}>{name || "Not set"}</Text>
-          <Text style={styles.helperText}>
+          <Text style={[styles.label, { color: theme.text }]}>Name</Text>
+          <Text style={[styles.emailText, { color: theme.textSecondary }]}>
+            {name || "Not set"}
+          </Text>
+          <Text style={[styles.helperText, { color: theme.textSecondary }]}>
             To update your name, please update it in your Clerk account
             settings.
           </Text>
         </View>
       </View>
 
+      {/* Appearance Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="color-palette" size={20} color={theme.primary} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Appearance
+          </Text>
+        </View>
+        <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: theme.text }]}>
+                Dark Mode
+              </Text>
+              <Text
+                style={[
+                  styles.settingDescription,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                Switch between light and dark themes
+              </Text>
+            </View>
+            <Switch
+              value={isDarkMode}
+              onValueChange={toggleTheme}
+              trackColor={{ false: "#767577", true: theme.primary }}
+              thumbColor={isDarkMode ? "#fff" : "#f4f3f4"}
+            />
+          </View>
+        </View>
+      </View>
+
       {/* Notifications Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="notifications" size={20} color={COLORS.primary} />
-          <Text style={styles.sectionTitle}>Notifications</Text>
+          <Ionicons name="notifications" size={20} color={theme.primary} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Notifications
+          </Text>
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Email Notifications</Text>
-              <Text style={styles.settingDescription}>
+              <Text style={[styles.settingLabel, { color: theme.text }]}>
+                Email Notifications
+              </Text>
+              <Text
+                style={[
+                  styles.settingDescription,
+                  { color: theme.textSecondary },
+                ]}
+              >
                 Receive match reminders via email
               </Text>
             </View>
@@ -128,19 +182,30 @@ const SettingsScreen = ({ navigation }) => {
               value={emailNotifications}
               onValueChange={setEmailNotifications}
               trackColor={{
-                false: COLORS.gray[300],
-                true: COLORS.primary + "40",
+                false: "#767577",
+                true: theme.primary,
               }}
-              thumbColor={
-                emailNotifications ? COLORS.primary : COLORS.gray[400]
-              }
+              thumbColor={emailNotifications ? "#fff" : "#f4f3f4"}
             />
           </View>
 
-          <View style={[styles.settingRow, styles.settingRowBorder]}>
+          <View
+            style={[
+              styles.settingRow,
+              styles.settingRowBorder,
+              { borderTopColor: theme.border },
+            ]}
+          >
             <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Push Notifications</Text>
-              <Text style={styles.settingDescription}>
+              <Text style={[styles.settingLabel, { color: theme.text }]}>
+                Push Notifications
+              </Text>
+              <Text
+                style={[
+                  styles.settingDescription,
+                  { color: theme.textSecondary },
+                ]}
+              >
                 Receive match reminders on your device
               </Text>
             </View>
@@ -148,10 +213,10 @@ const SettingsScreen = ({ navigation }) => {
               value={pushNotifications}
               onValueChange={setPushNotifications}
               trackColor={{
-                false: COLORS.gray[300],
-                true: COLORS.primary + "40",
+                false: "#767577",
+                true: theme.primary,
               }}
-              thumbColor={pushNotifications ? COLORS.primary : COLORS.gray[400]}
+              thumbColor={pushNotifications ? "#fff" : "#f4f3f4"}
             />
           </View>
         </View>
@@ -160,24 +225,26 @@ const SettingsScreen = ({ navigation }) => {
       {/* App Info Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons
-            name="information-circle"
-            size={20}
-            color={COLORS.primary}
-          />
-          <Text style={styles.sectionTitle}>About</Text>
+          <Ionicons name="information-circle" size={20} color={theme.primary} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            About
+          </Text>
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Version</Text>
-            <Text style={styles.infoValue}>
+            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>
+              Version
+            </Text>
+            <Text style={[styles.infoValue, { color: theme.text }]}>
               {Constants.expoConfig?.version || "1.0.0"}
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Account Created</Text>
-            <Text style={styles.infoValue}>
+            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>
+              Account Created
+            </Text>
+            <Text style={[styles.infoValue, { color: theme.text }]}>
               {new Date(clerkUser?.createdAt).toLocaleDateString()}
             </Text>
           </View>
@@ -187,7 +254,11 @@ const SettingsScreen = ({ navigation }) => {
       {/* Save Button */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          style={[
+            styles.saveButton,
+            { backgroundColor: theme.success },
+            saving && styles.saveButtonDisabled,
+          ]}
           onPress={handleSave}
           disabled={saving}
         >

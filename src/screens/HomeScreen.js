@@ -20,10 +20,12 @@ import { useTeamContext } from "../contexts/TeamContext";
 import TeamSelector from "../components/TeamSelector";
 import { formatDateTime } from "../utils/helpers";
 import { COLORS, FONTS } from "../config/constants";
+import { useTheme } from "../contexts/ThemeContext";
 
 const HomeScreen = ({ navigation }) => {
   const { user } = useUser();
   const { signOut } = useAuth();
+  const { theme } = useTheme();
   const { selectedTeamId, selectTeam } = useTeamContext();
   const [refreshing, setRefreshing] = useState(false);
   const [hasAutoSelected, setHasAutoSelected] = useState(false);
@@ -96,9 +98,13 @@ const HomeScreen = ({ navigation }) => {
 
   if (loading && !dashboardData) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading...</Text>
+      <View
+        style={[styles.centerContainer, { backgroundColor: theme.background }]}
+      >
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+          Loading...
+        </Text>
       </View>
     );
   }
@@ -107,9 +113,14 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={theme.primary}
+          colors={[theme.primary]}
+        />
       }
     >
       {/* Header */}
@@ -158,17 +169,53 @@ const HomeScreen = ({ navigation }) => {
 
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalMatches}</Text>
-          <Text style={styles.statLabel}>Total Matches</Text>
+        <View
+          style={[
+            styles.statCard,
+            {
+              backgroundColor: theme.cardBackground,
+              shadowColor: theme.shadow,
+            },
+          ]}
+        >
+          <Text style={[styles.statValue, { color: theme.text }]}>
+            {stats.totalMatches}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+            Total Matches
+          </Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalPlayers}</Text>
-          <Text style={styles.statLabel}>Players</Text>
+        <View
+          style={[
+            styles.statCard,
+            {
+              backgroundColor: theme.cardBackground,
+              shadowColor: theme.shadow,
+            },
+          ]}
+        >
+          <Text style={[styles.statValue, { color: theme.text }]}>
+            {stats.totalPlayers}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+            Players
+          </Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.wins}</Text>
-          <Text style={styles.statLabel}>Wins</Text>
+        <View
+          style={[
+            styles.statCard,
+            {
+              backgroundColor: theme.cardBackground,
+              shadowColor: theme.shadow,
+            },
+          ]}
+        >
+          <Text style={[styles.statValue, { color: theme.text }]}>
+            {stats.wins}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+            Wins
+          </Text>
         </View>
       </View>
 
@@ -177,20 +224,34 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
-              <Ionicons name="calendar" size={24} color={COLORS.primary} />
-              <Text style={styles.sectionTitle}>Scheduled Matches</Text>
+              <Ionicons name="calendar" size={24} color={theme.primary} />
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                Scheduled Matches
+              </Text>
             </View>
             <TouchableOpacity onPress={() => navigation.navigate("History")}>
-              <Text style={styles.seeAllText}>See All</Text>
+              <Text style={[styles.seeAllText, { color: theme.primary }]}>
+                See All
+              </Text>
             </TouchableOpacity>
           </View>
           {upcomingMatches.map((match) => (
             <View
               key={match.id}
-              style={[styles.matchCard, styles.scheduledMatchCard]}
+              style={[
+                styles.matchCard,
+                styles.scheduledMatchCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                  borderColor: theme.border,
+                },
+              ]}
             >
               <View style={styles.matchHeader}>
-                <Text style={styles.matchOpponent}>{match.opponent}</Text>
+                <Text style={[styles.matchOpponent, { color: theme.text }]}>
+                  {match.opponent}
+                </Text>
                 <View style={styles.matchHeaderActions}>
                   <View style={styles.matchTypeBadge}>
                     <Text style={styles.matchTypeText}>
@@ -209,7 +270,7 @@ const HomeScreen = ({ navigation }) => {
                     <Ionicons
                       name="create-outline"
                       size={18}
-                      color={COLORS.primary}
+                      color={theme.primary}
                     />
                   </TouchableOpacity>
                 </View>
@@ -218,9 +279,11 @@ const HomeScreen = ({ navigation }) => {
                 <Ionicons
                   name="location"
                   size={14}
-                  color={COLORS.textSecondary}
+                  color={theme.textSecondary}
                 />
-                <Text style={styles.matchDate}>
+                <Text
+                  style={[styles.matchDate, { color: theme.textSecondary }]}
+                >
                   {match.venue === "home" ? "Home" : "Away"} •{" "}
                   {formatDateTime(match.date)}
                 </Text>
@@ -231,9 +294,14 @@ const HomeScreen = ({ navigation }) => {
                     <Ionicons
                       name="people"
                       size={14}
-                      color={COLORS.textSecondary}
+                      color={theme.textSecondary}
                     />
-                    <Text style={styles.playerCount}>
+                    <Text
+                      style={[
+                        styles.playerCount,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
                       {match.selectedPlayerIds.length} player
                       {match.selectedPlayerIds.length !== 1 ? "s" : ""} selected
                     </Text>
@@ -244,15 +312,21 @@ const HomeScreen = ({ navigation }) => {
                   <Ionicons
                     name="document-text"
                     size={14}
-                    color={COLORS.textSecondary}
+                    color={theme.textSecondary}
                   />
-                  <Text style={styles.matchNotes} numberOfLines={2}>
+                  <Text
+                    style={[styles.matchNotes, { color: theme.textSecondary }]}
+                    numberOfLines={2}
+                  >
                     {match.notes}
                   </Text>
                 </View>
               )}
               <TouchableOpacity
-                style={styles.startMatchButton}
+                style={[
+                  styles.startMatchButton,
+                  { backgroundColor: theme.primary },
+                ]}
                 onPress={() =>
                   navigation.navigate("LiveMatch", { matchId: match.id })
                 }
@@ -265,9 +339,11 @@ const HomeScreen = ({ navigation }) => {
         </View>
       ) : (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>No Scheduled Matches</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            No Scheduled Matches
+          </Text>
           <TouchableOpacity
-            style={styles.addMatchButton}
+            style={[styles.addMatchButton, { backgroundColor: theme.primary }]}
             onPress={() => navigation.navigate("AddMatch")}
           >
             <Text style={styles.addMatchButtonText}>+ Schedule New Match</Text>
@@ -279,23 +355,38 @@ const HomeScreen = ({ navigation }) => {
       {recentMatches.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Matches</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Recent Matches
+            </Text>
             <TouchableOpacity onPress={() => navigation.navigate("History")}>
-              <Text style={styles.seeAllText}>See All</Text>
+              <Text style={[styles.seeAllText, { color: theme.primary }]}>
+                See All
+              </Text>
             </TouchableOpacity>
           </View>
           {recentMatches.map((match) => (
             <TouchableOpacity
               key={match.id}
-              style={styles.matchCard}
+              style={[
+                styles.matchCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                  borderColor: theme.border,
+                },
+              ]}
               onPress={() =>
                 navigation.navigate("MatchDetails", { matchId: match.id })
               }
             >
               <View style={styles.matchRow}>
                 <View style={styles.matchInfo}>
-                  <Text style={styles.matchOpponent}>{match.opponent}</Text>
-                  <Text style={styles.matchDate}>
+                  <Text style={[styles.matchOpponent, { color: theme.text }]}>
+                    {match.opponent}
+                  </Text>
+                  <Text
+                    style={[styles.matchDate, { color: theme.textSecondary }]}
+                  >
                     {formatDateTime(match.date)}
                   </Text>
                 </View>
@@ -318,10 +409,16 @@ const HomeScreen = ({ navigation }) => {
 
       {/* Quick Actions */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+          Quick Actions
+        </Text>
         <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.actionButtonPrimary]}
+            style={[
+              styles.actionButton,
+              styles.actionButtonPrimary,
+              { backgroundColor: theme.primary },
+            ]}
             onPress={() => navigation.navigate("AddMatch")}
           >
             <View style={styles.actionButtonContent}>
@@ -337,21 +434,39 @@ const HomeScreen = ({ navigation }) => {
             </View>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.actionButton}
+            style={[
+              styles.actionButton,
+              {
+                backgroundColor: theme.cardBackground,
+                shadowColor: theme.shadow,
+                borderColor: theme.border,
+              },
+            ]}
             onPress={() => navigation.navigate("Players")}
           >
             <View style={styles.actionButtonContent}>
-              <Ionicons name="people" size={24} color={COLORS.primary} />
-              <Text style={styles.actionButtonText}>Manage Players</Text>
+              <Ionicons name="people" size={24} color={theme.primary} />
+              <Text style={[styles.actionButtonText, { color: theme.text }]}>
+                Manage Players
+              </Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.actionButton}
+            style={[
+              styles.actionButton,
+              {
+                backgroundColor: theme.cardBackground,
+                shadowColor: theme.shadow,
+                borderColor: theme.border,
+              },
+            ]}
             onPress={() => navigation.navigate("Stats")}
           >
             <View style={styles.actionButtonContent}>
-              <Ionicons name="stats-chart" size={24} color={COLORS.primary} />
-              <Text style={styles.actionButtonText}>View Statistics</Text>
+              <Ionicons name="stats-chart" size={24} color={theme.primary} />
+              <Text style={[styles.actionButtonText, { color: theme.text }]}>
+                View Statistics
+              </Text>
             </View>
           </TouchableOpacity>
         </View>

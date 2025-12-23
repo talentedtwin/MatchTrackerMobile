@@ -14,23 +14,41 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { usePlayers, useTeams } from "../hooks/useResources";
 import { useTeamContext } from "../contexts/TeamContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { COLORS } from "../config/constants";
 
 // Memoized PlayerCard component to prevent unnecessary re-renders
-const PlayerCard = memo(({ player, onEdit, onDelete }) => {
+const PlayerCard = memo(({ player, onEdit, onDelete, theme }) => {
   return (
-    <View style={styles.playerCard}>
+    <View
+      style={[
+        styles.playerCard,
+        {
+          backgroundColor: theme.cardBackground,
+          shadowColor: theme.shadow,
+          borderColor: theme.border,
+        },
+      ]}
+    >
       <View style={styles.playerInfo}>
-        <Text style={styles.playerName}>{player.name}</Text>
+        <Text style={[styles.playerName, { color: theme.text }]}>
+          {player.name}
+        </Text>
         <View style={styles.playerStatsRow}>
           <View style={styles.statItem}>
-            <Ionicons name="football" size={14} color={COLORS.primary} />
-            <Text style={styles.playerStats}>{player.goals} goals</Text>
+            <Ionicons name="football" size={14} color={theme.primary} />
+            <Text style={[styles.playerStats, { color: theme.textSecondary }]}>
+              {player.goals} goals
+            </Text>
           </View>
-          <Text style={styles.statDivider}>•</Text>
+          <Text style={[styles.statDivider, { color: theme.textSecondary }]}>
+            •
+          </Text>
           <View style={styles.statItem}>
             <Ionicons name="flash" size={14} color="#FFA500" />
-            <Text style={styles.playerStats}>{player.assists} assists</Text>
+            <Text style={[styles.playerStats, { color: theme.textSecondary }]}>
+              {player.assists} assists
+            </Text>
           </View>
         </View>
       </View>
@@ -39,7 +57,7 @@ const PlayerCard = memo(({ player, onEdit, onDelete }) => {
           style={styles.iconButton}
           onPress={() => onEdit(player)}
         >
-          <Ionicons name="create-outline" size={18} color={COLORS.primary} />
+          <Ionicons name="create-outline" size={18} color={theme.primary} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.iconButton}
@@ -53,48 +71,73 @@ const PlayerCard = memo(({ player, onEdit, onDelete }) => {
 });
 
 // Memoized TeamCard component
-const TeamCard = memo(({ team, players, onEdit, onDelete, navigation }) => {
-  return (
-    <View style={styles.teamCard}>
-      <View style={styles.teamHeader}>
-        <View style={styles.teamInfo}>
-          <Text style={styles.teamName}>{team.name}</Text>
-          <Text style={styles.teamPlayerCount}>
-            {players.length} player{players.length !== 1 ? "s" : ""}
-          </Text>
+const TeamCard = memo(
+  ({ team, players, onEdit, onDelete, navigation, theme }) => {
+    return (
+      <View
+        style={[
+          styles.teamCard,
+          {
+            backgroundColor: theme.cardBackground,
+            shadowColor: theme.shadow,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <View style={styles.teamHeader}>
+          <View style={styles.teamInfo}>
+            <Text style={[styles.teamName, { color: theme.text }]}>
+              {team.name}
+            </Text>
+            <Text
+              style={[styles.teamPlayerCount, { color: theme.textSecondary }]}
+            >
+              {players.length} player{players.length !== 1 ? "s" : ""}
+            </Text>
+          </View>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate("AddTeam", { team })}
+            >
+              <Ionicons name="create-outline" size={18} color={theme.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => onDelete(team.id)}
+            >
+              <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.navigate("AddTeam", { team })}
-          >
-            <Ionicons name="create-outline" size={18} color={COLORS.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => onDelete(team.id)}
-          >
-            <Ionicons name="trash-outline" size={18} color={COLORS.error} />
-          </TouchableOpacity>
-        </View>
-      </View>
 
-      {players.length > 0 && (
-        <View style={styles.playersList}>
-          {players.map((player) => (
-            <View key={player.id} style={styles.playerChip}>
-              <Text style={styles.playerChipText}>
-                {player.name} ({player.goals}G {player.assists}A)
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-});
+        {players.length > 0 && (
+          <View style={styles.playersList}>
+            {players.map((player) => (
+              <View
+                key={player.id}
+                style={[
+                  styles.playerChip,
+                  {
+                    backgroundColor: theme.background,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.playerChipText, { color: theme.text }]}>
+                  {player.name} ({player.goals}G {player.assists}A)
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  }
+);
 
 const PlayersScreen = ({ navigation }) => {
+  const { theme } = useTheme();
   const { selectedTeamId: filterTeamId } = useTeamContext();
   const {
     players,
@@ -330,38 +373,70 @@ const PlayersScreen = ({ navigation }) => {
 
   if (loading && players.length === 0 && teams.length === 0) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading...</Text>
+      <View
+        style={[styles.centerContainer, { backgroundColor: theme.background }]}
+      >
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+          Loading...
+        </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Tabs */}
-      <View style={styles.tabContainer}>
+      <View
+        style={[
+          styles.tabContainer,
+          {
+            backgroundColor: theme.cardBackground,
+            borderBottomColor: theme.border,
+          },
+        ]}
+      >
         <TouchableOpacity
-          style={[styles.tab, activeTab === "teams" && styles.activeTab]}
+          style={[
+            styles.tab,
+            activeTab === "teams" && [
+              styles.activeTab,
+              { borderBottomColor: theme.primary },
+            ],
+          ]}
           onPress={() => setActiveTab("teams")}
         >
           <Text
             style={[
               styles.tabText,
-              activeTab === "teams" && styles.activeTabText,
+              { color: theme.textSecondary },
+              activeTab === "teams" && [
+                styles.activeTabText,
+                { color: theme.primary },
+              ],
             ]}
           >
             Teams
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === "players" && styles.activeTab]}
+          style={[
+            styles.tab,
+            activeTab === "players" && [
+              styles.activeTab,
+              { borderBottomColor: theme.primary },
+            ],
+          ]}
           onPress={() => setActiveTab("players")}
         >
           <Text
             style={[
               styles.tabText,
-              activeTab === "players" && styles.activeTabText,
+              { color: theme.textSecondary },
+              activeTab === "players" && [
+                styles.activeTabText,
+                { color: theme.primary },
+              ],
             ]}
           >
             Players
@@ -370,11 +445,17 @@ const PlayersScreen = ({ navigation }) => {
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={COLORS.textSecondary} />
+      <View
+        style={[
+          styles.searchContainer,
+          { backgroundColor: theme.cardBackground, borderColor: theme.border },
+        ]}
+      >
+        <Ionicons name="search" size={20} color={theme.textSecondary} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: theme.text }]}
           placeholder={`Search ${activeTab}...`}
+          placeholderTextColor={theme.textSecondary}
           value={searchQuery}
           onChangeText={handleSearchChange}
           returnKeyType="search"
@@ -384,7 +465,7 @@ const PlayersScreen = ({ navigation }) => {
             <Ionicons
               name="close-circle"
               size={20}
-              color={COLORS.textSecondary}
+              color={theme.textSecondary}
             />
           </TouchableOpacity>
         )}
@@ -393,16 +474,23 @@ const PlayersScreen = ({ navigation }) => {
       <ScrollView
         style={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
         }
       >
         {activeTab === "teams" ? (
           // Teams Tab
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Your Teams</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                Your Teams
+              </Text>
               <TouchableOpacity
-                style={styles.addButton}
+                style={[styles.addButton, { backgroundColor: theme.primary }]}
                 onPress={() => navigation.navigate("AddTeam")}
               >
                 <Text style={styles.addButtonText}>+ Add Team</Text>
@@ -411,7 +499,9 @@ const PlayersScreen = ({ navigation }) => {
 
             {filteredTeams.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
+                <Text
+                  style={[styles.emptyText, { color: theme.textSecondary }]}
+                >
                   {searchQuery.trim() ? "No teams found" : "No teams yet"}
                 </Text>
                 <Text style={styles.emptySubtext}>
@@ -431,6 +521,7 @@ const PlayersScreen = ({ navigation }) => {
                     onEdit={handleEditTeam}
                     onDelete={handleDeleteTeam}
                     navigation={navigation}
+                    theme={theme}
                   />
                 );
               })
@@ -440,9 +531,11 @@ const PlayersScreen = ({ navigation }) => {
           // Players Tab
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>All Players</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                All Players
+              </Text>
               <TouchableOpacity
-                style={styles.addButton}
+                style={[styles.addButton, { backgroundColor: theme.primary }]}
                 onPress={() => {
                   setEditingPlayer(null);
                   setPlayerName("");
@@ -457,13 +550,16 @@ const PlayersScreen = ({ navigation }) => {
             {/* Unassigned Players */}
             {unassignedPlayers.length > 0 && (
               <View style={styles.subsection}>
-                <Text style={styles.subsectionTitle}>Unassigned Players</Text>
+                <Text style={[styles.subsectionTitle, { color: theme.text }]}>
+                  Unassigned Players
+                </Text>
                 {unassignedPlayers.map((player) => (
                   <PlayerCard
                     key={player.id}
                     player={player}
                     onEdit={handleEditPlayer}
                     onDelete={handleDeletePlayer}
+                    theme={theme}
                   />
                 ))}
               </View>
@@ -476,13 +572,16 @@ const PlayersScreen = ({ navigation }) => {
 
               return (
                 <View key={team.id} style={styles.subsection}>
-                  <Text style={styles.subsectionTitle}>{team.name}</Text>
+                  <Text style={[styles.subsectionTitle, { color: theme.text }]}>
+                    {team.name}
+                  </Text>
                   {teamPlayers.map((player) => (
                     <PlayerCard
                       key={player.id}
                       player={player}
                       onEdit={handleEditPlayer}
                       onDelete={handleDeletePlayer}
+                      theme={theme}
                     />
                   ))}
                 </View>
@@ -491,10 +590,14 @@ const PlayersScreen = ({ navigation }) => {
 
             {filteredPlayers.length === 0 && (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
+                <Text
+                  style={[styles.emptyText, { color: theme.textSecondary }]}
+                >
                   {searchQuery.trim() ? "No players found" : "No players yet"}
                 </Text>
-                <Text style={styles.emptySubtext}>
+                <Text
+                  style={[styles.emptySubtext, { color: theme.textSecondary }]}
+                >
                   {searchQuery.trim()
                     ? "Try a different search term"
                     : "Add your first player to get started"}
@@ -513,30 +616,56 @@ const PlayersScreen = ({ navigation }) => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.cardBackground },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
               {editingPlayer ? "Edit Player" : "Add Player"}
             </Text>
 
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
+              ]}
               placeholder="Player Name"
+              placeholderTextColor={theme.textSecondary}
               value={playerName}
               onChangeText={setPlayerName}
             />
 
-            <Text style={styles.label}>Assign to Team (Optional)</Text>
+            <Text style={[styles.label, { color: theme.text }]}>
+              Assign to Team (Optional)
+            </Text>
             <View style={styles.teamSelector}>
               <TouchableOpacity
                 style={[
                   styles.teamOption,
-                  !selectedTeamId && styles.teamOptionSelected,
+                  {
+                    backgroundColor: theme.background,
+                    borderColor: theme.border,
+                  },
+                  !selectedTeamId && [
+                    styles.teamOptionSelected,
+                    {
+                      backgroundColor: theme.primary,
+                      borderColor: theme.primary,
+                    },
+                  ],
                 ]}
                 onPress={() => setSelectedTeamId("")}
               >
                 <Text
                   style={[
                     styles.teamOptionText,
+                    { color: theme.text },
                     !selectedTeamId && styles.teamOptionTextSelected,
                   ]}
                 >
@@ -548,13 +677,24 @@ const PlayersScreen = ({ navigation }) => {
                   key={team.id}
                   style={[
                     styles.teamOption,
-                    selectedTeamId === team.id && styles.teamOptionSelected,
+                    {
+                      backgroundColor: theme.background,
+                      borderColor: theme.border,
+                    },
+                    selectedTeamId === team.id && [
+                      styles.teamOptionSelected,
+                      {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      },
+                    ],
                   ]}
                   onPress={() => setSelectedTeamId(team.id)}
                 >
                   <Text
                     style={[
                       styles.teamOptionText,
+                      { color: theme.text },
                       selectedTeamId === team.id &&
                         styles.teamOptionTextSelected,
                     ]}
@@ -567,7 +707,11 @@ const PlayersScreen = ({ navigation }) => {
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
+                style={[
+                  styles.modalButton,
+                  styles.cancelButton,
+                  { borderColor: theme.border },
+                ]}
                 onPress={() => {
                   setModalVisible(false);
                   setEditingPlayer(null);
@@ -575,10 +719,16 @@ const PlayersScreen = ({ navigation }) => {
                   setSelectedTeamId("");
                 }}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: theme.text }]}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
+                style={[
+                  styles.modalButton,
+                  styles.saveButton,
+                  { backgroundColor: theme.primary },
+                ]}
                 onPress={editingPlayer ? handleUpdatePlayer : handleAddPlayer}
               >
                 <Text style={styles.saveButtonText}>
@@ -598,31 +748,54 @@ const PlayersScreen = ({ navigation }) => {
         onRequestClose={() => setTeamModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.cardBackground },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
               {editingTeam ? "Edit Team" : "Add Team"}
             </Text>
 
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
+              ]}
               placeholder="Team Name"
+              placeholderTextColor={theme.textSecondary}
               value={teamName}
               onChangeText={setTeamName}
             />
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
+                style={[
+                  styles.modalButton,
+                  styles.cancelButton,
+                  { borderColor: theme.border },
+                ]}
                 onPress={() => {
                   setTeamModalVisible(false);
                   setEditingTeam(null);
                   setTeamName("");
                 }}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: theme.text }]}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
+                style={[
+                  styles.modalButton,
+                  styles.saveButton,
+                  { backgroundColor: theme.primary },
+                ]}
                 onPress={editingTeam ? handleUpdateTeam : handleAddTeam}
               >
                 <Text style={styles.saveButtonText}>
