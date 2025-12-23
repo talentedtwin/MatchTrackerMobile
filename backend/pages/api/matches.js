@@ -127,6 +127,7 @@ async function handler(req, res) {
         notes,
         selectedPlayerIds = [],
         teamId,
+        playerOfTheMatchId,
       } = req.body;
 
       if (!opponent) {
@@ -150,6 +151,7 @@ async function handler(req, res) {
             selectedPlayerIds,
             userId,
             teamId: teamId || null,
+            playerOfTheMatchId: playerOfTheMatchId || null,
           },
           include: {
             team: true,

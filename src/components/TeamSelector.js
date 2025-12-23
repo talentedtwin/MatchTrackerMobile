@@ -9,8 +9,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONTS } from "../config/constants";
+import { useTheme } from "../contexts/ThemeContext";
 
 const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
+  const { theme } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
 
   const selectedTeam = teams.find((t) => t.id === selectedTeamId);
@@ -28,19 +30,22 @@ const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
   return (
     <>
       <TouchableOpacity
-        style={styles.selectorButton}
+        style={[
+          styles.selectorButton,
+          {
+            backgroundColor: theme.cardBackground,
+            borderColor: theme.border,
+            shadowColor: theme.shadow,
+          },
+        ]}
         onPress={() => setModalVisible(true)}
       >
         <View style={styles.selectorContent}>
-          <Ionicons name="people" size={20} color={COLORS.primary} />
-          <Text style={styles.selectorText}>
+          <Ionicons name="people" size={20} color={theme.primary} />
+          <Text style={[styles.selectorText, { color: theme.text }]}>
             {selectedTeam ? selectedTeam.name : "All Teams"}
           </Text>
-          <Ionicons
-            name="chevron-down"
-            size={20}
-            color={COLORS.textSecondary}
-          />
+          <Ionicons name="chevron-down" size={20} color={theme.textSecondary} />
         </View>
       </TouchableOpacity>
 
@@ -51,14 +56,23 @@ const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Team</Text>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.cardBackground },
+            ]}
+          >
+            <View
+              style={[styles.modalHeader, { borderBottomColor: theme.border }]}
+            >
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                Select Team
+              </Text>
               <TouchableOpacity
                 onPress={() => setModalVisible(false)}
                 style={styles.closeButton}
               >
-                <Ionicons name="close" size={24} color={COLORS.text} />
+                <Ionicons name="close" size={24} color={theme.text} />
               </TouchableOpacity>
             </View>
 
@@ -67,7 +81,9 @@ const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
               <TouchableOpacity
                 style={[
                   styles.teamOption,
-                  !selectedTeamId && styles.teamOptionSelected,
+                  {
+                    backgroundColor: theme.cardBackground,
+                  },
                 ]}
                 onPress={() => handleSelectTeam(null)}
               >
@@ -76,19 +92,28 @@ const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
                     name="albums"
                     size={24}
                     color={
-                      !selectedTeamId ? COLORS.primary : COLORS.textSecondary
+                      !selectedTeamId ? theme.primary : theme.textSecondary
                     }
                   />
                   <View style={styles.teamInfo}>
                     <Text
                       style={[
                         styles.teamName,
-                        !selectedTeamId && styles.teamNameSelected,
+                        { color: theme.text },
+                        !selectedTeamId && [
+                          styles.teamNameSelected,
+                          { color: theme.primary },
+                        ],
                       ]}
                     >
                       All Teams
                     </Text>
-                    <Text style={styles.teamDescription}>
+                    <Text
+                      style={[
+                        styles.teamDescription,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
                       View data from all your teams
                     </Text>
                   </View>
@@ -97,7 +122,7 @@ const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
                   <Ionicons
                     name="checkmark-circle"
                     size={24}
-                    color={COLORS.primary}
+                    color={theme.primary}
                   />
                 )}
               </TouchableOpacity>
@@ -108,7 +133,9 @@ const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
                   key={team.id}
                   style={[
                     styles.teamOption,
-                    selectedTeamId === team.id && styles.teamOptionSelected,
+                    {
+                      backgroundColor: theme.cardBackground,
+                    },
                   ]}
                   onPress={() => handleSelectTeam(team.id)}
                 >
@@ -118,15 +145,19 @@ const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
                       size={24}
                       color={
                         selectedTeamId === team.id
-                          ? COLORS.primary
-                          : COLORS.textSecondary
+                          ? theme.primary
+                          : theme.textSecondary
                       }
                     />
                     <View style={styles.teamInfo}>
                       <Text
                         style={[
                           styles.teamName,
-                          selectedTeamId === team.id && styles.teamNameSelected,
+                          { color: theme.text },
+                          selectedTeamId === team.id && [
+                            styles.teamNameSelected,
+                            { color: theme.primary },
+                          ],
                         ]}
                       >
                         {team.name}
@@ -137,7 +168,7 @@ const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
                     <Ionicons
                       name="checkmark-circle"
                       size={24}
-                      color={COLORS.primary}
+                      color={theme.primary}
                     />
                   )}
                 </TouchableOpacity>
@@ -152,16 +183,13 @@ const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
 
 const styles = StyleSheet.create({
   selectorButton: {
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 12,
     marginHorizontal: 20,
     marginTop: 10,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: COLORS.gray[300],
     elevation: 2,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -175,7 +203,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontFamily: FONTS.bodyBold,
-    color: COLORS.text,
   },
   modalOverlay: {
     flex: 1,
@@ -183,7 +210,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: "80%",
@@ -195,12 +221,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[200],
   },
   modalTitle: {
     fontSize: 20,
     fontFamily: FONTS.heading,
-    color: COLORS.text,
   },
   closeButton: {
     padding: 4,
@@ -215,12 +239,10 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 12,
     marginBottom: 10,
-    backgroundColor: COLORS.gray[50],
     borderWidth: 2,
     borderColor: "transparent",
   },
   teamOptionSelected: {
-    backgroundColor: `${COLORS.primary}15`,
     borderColor: COLORS.primary,
   },
   teamOptionContent: {
@@ -235,7 +257,6 @@ const styles = StyleSheet.create({
   teamName: {
     fontSize: 16,
     fontFamily: FONTS.bodyBold,
-    color: COLORS.text,
     marginBottom: 4,
   },
   teamNameSelected: {
@@ -244,7 +265,6 @@ const styles = StyleSheet.create({
   teamDescription: {
     fontSize: 13,
     fontFamily: FONTS.body,
-    color: COLORS.textSecondary,
   },
 });
 

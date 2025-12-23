@@ -1,17 +1,19 @@
-import React, { useMemo } from 'react';
+import React, { useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../config/constants';
-import { usePlayers, useMatches } from '../hooks/useResources';
-import { useTeamContext } from '../contexts/TeamContext';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "../config/constants";
+import { usePlayers, useMatches } from "../hooks/useResources";
+import { useTeamContext } from "../contexts/TeamContext";
+import { useTheme } from "../contexts/ThemeContext";
 
 const PlayerStatsScreen = ({ route, navigation }) => {
+  const { theme } = useTheme();
   const { playerId } = route.params;
   const { selectedTeamId } = useTeamContext();
   const { players, loading: playersLoading } = usePlayers(selectedTeamId);
@@ -23,14 +25,15 @@ const PlayerStatsScreen = ({ route, navigation }) => {
   const playerStats = useMemo(() => {
     if (!players.length || !matches.length) return null;
 
-    const player = players.find(p => p.id === playerId);
+    const player = players.find((p) => p.id === playerId);
     if (!player) return null;
 
     // Get all finished matches where this player participated
-    const playerMatches = matches.filter(match => 
-      match.isFinished && 
-      match.selectedPlayerIds && 
-      match.selectedPlayerIds.includes(playerId)
+    const playerMatches = matches.filter(
+      (match) =>
+        match.isFinished &&
+        match.selectedPlayerIds &&
+        match.selectedPlayerIds.includes(playerId)
     );
 
     const totalMatches = playerMatches.length;
@@ -41,10 +44,16 @@ const PlayerStatsScreen = ({ route, navigation }) => {
     let totalMinutes = 0;
     let totalYellowCards = 0;
     let totalRedCards = 0;
+    let playerOfMatchAwards = 0;
 
-    playerMatches.forEach(match => {
+    playerMatches.forEach((match) => {
+      // Count Player of the Match awards
+      if (match.playerOfTheMatchId === playerId) {
+        playerOfMatchAwards += 1;
+      }
+
       if (match.playerStats) {
-        const stat = match.playerStats.find(s => s.playerId === playerId);
+        const stat = match.playerStats.find((s) => s.playerId === playerId);
         if (stat) {
           totalGoals += stat.goals || 0;
           totalAssists += stat.assists || 0;
@@ -55,9 +64,12 @@ const PlayerStatsScreen = ({ route, navigation }) => {
       }
     });
 
-    const avgGoalsPerGame = totalMatches > 0 ? (totalGoals / totalMatches).toFixed(2) : '0.00';
-    const avgAssistsPerGame = totalMatches > 0 ? (totalAssists / totalMatches).toFixed(2) : '0.00';
-    const avgMinutesPerMatch = totalMatches > 0 ? Math.round(totalMinutes / totalMatches) : 0;
+    const avgGoalsPerGame =
+      totalMatches > 0 ? (totalGoals / totalMatches).toFixed(2) : "0.00";
+    const avgAssistsPerGame =
+      totalMatches > 0 ? (totalAssists / totalMatches).toFixed(2) : "0.00";
+    const avgMinutesPerMatch =
+      totalMatches > 0 ? Math.round(totalMinutes / totalMatches) : 0;
 
     return {
       player,
@@ -67,6 +79,7 @@ const PlayerStatsScreen = ({ route, navigation }) => {
       totalMinutes,
       totalYellowCards,
       totalRedCards,
+      playerOfMatchAwards,
       avgGoalsPerGame,
       avgAssistsPerGame,
       avgMinutesPerMatch,
@@ -75,16 +88,22 @@ const PlayerStatsScreen = ({ route, navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading player stats...</Text>
+      <View
+        style={[styles.centerContainer, { backgroundColor: theme.background }]}
+      >
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+          Loading player stats...
+        </Text>
       </View>
     );
   }
 
   if (!playerStats || !playerStats.player) {
     return (
-      <View style={styles.centerContainer}>
+      <View
+        style={[styles.centerContainer, { backgroundColor: theme.background }]}
+      >
         <Text style={styles.errorText}>Player not found</Text>
       </View>
     );
@@ -93,10 +112,10 @@ const PlayerStatsScreen = ({ route, navigation }) => {
   const { player } = playerStats;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView style={styles.content}>
         {/* Player Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: theme.primary }]}>
           <Text style={styles.playerName}>{player.name}</Text>
           {player.team && (
             <Text style={styles.teamName}>{player.team.name}</Text>
@@ -105,101 +124,274 @@ const PlayerStatsScreen = ({ route, navigation }) => {
 
         {/* Career Overview */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Career Overview</Text>
-          
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Career Overview
+          </Text>
+
           <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Ionicons name="trophy" size={32} color={COLORS.primary} />
-              <Text style={styles.statValue}>{playerStats.totalMatches}</Text>
-              <Text style={styles.statLabel}>Matches Played</Text>
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <Ionicons name="trophy" size={32} color={theme.primary} />
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {playerStats.totalMatches}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Matches Played
+              </Text>
             </View>
 
-            <View style={styles.statCard}>
-              <Ionicons name="time-outline" size={32} color={COLORS.primary} />
-              <Text style={styles.statValue}>{playerStats.totalMinutes}'</Text>
-              <Text style={styles.statLabel}>Total Minutes</Text>
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <Ionicons name="trophy" size={32} color="#FFA500" />
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {playerStats.playerOfMatchAwards}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Player of Match
+              </Text>
             </View>
 
-            <View style={styles.statCard}>
-              <Ionicons name="timer-outline" size={32} color={COLORS.primary} />
-              <Text style={styles.statValue}>{playerStats.avgMinutesPerMatch}'</Text>
-              <Text style={styles.statLabel}>Avg Minutes/Game</Text>
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <Ionicons name="time-outline" size={32} color={theme.primary} />
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {playerStats.totalMinutes}'
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Total Minutes
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.statsGrid}>
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <Ionicons name="timer-outline" size={32} color={theme.primary} />
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {playerStats.avgMinutesPerMatch}'
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Avg Minutes/Game
+              </Text>
             </View>
           </View>
         </View>
 
         {/* Scoring Statistics */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Scoring Statistics</Text>
-          
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Scoring Statistics
+          </Text>
+
           <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
               <Ionicons name="football" size={32} color="#4CAF50" />
-              <Text style={styles.statValue}>{playerStats.totalGoals}</Text>
-              <Text style={styles.statLabel}>Total Goals</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {playerStats.totalGoals}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Total Goals
+              </Text>
             </View>
 
-            <View style={styles.statCard}>
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
               <Ionicons name="flash" size={32} color="#FFA500" />
-              <Text style={styles.statValue}>{playerStats.totalAssists}</Text>
-              <Text style={styles.statLabel}>Total Assists</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {playerStats.totalAssists}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Total Assists
+              </Text>
             </View>
 
-            <View style={styles.statCard}>
-              <Ionicons name="stats-chart" size={32} color={COLORS.primary} />
-              <Text style={styles.statValue}>
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <Ionicons name="stats-chart" size={32} color={theme.primary} />
+              <Text style={[styles.statValue, { color: theme.text }]}>
                 {playerStats.totalGoals + playerStats.totalAssists}
               </Text>
-              <Text style={styles.statLabel}>Goal Contributions</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Goal Contributions
+              </Text>
             </View>
           </View>
 
           <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
               <Ionicons name="analytics" size={32} color="#4CAF50" />
-              <Text style={styles.statValue}>{playerStats.avgGoalsPerGame}</Text>
-              <Text style={styles.statLabel}>Avg Goals/Game</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <Ionicons name="trending-up" size={32} color="#FFA500" />
-              <Text style={styles.statValue}>{playerStats.avgAssistsPerGame}</Text>
-              <Text style={styles.statLabel}>Avg Assists/Game</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <Ionicons name="pulse" size={32} color={COLORS.primary} />
-              <Text style={styles.statValue}>
-                {(parseFloat(playerStats.avgGoalsPerGame) + parseFloat(playerStats.avgAssistsPerGame)).toFixed(2)}
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {playerStats.avgGoalsPerGame}
               </Text>
-              <Text style={styles.statLabel}>Avg Contributions</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Avg Goals/Game
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <Ionicons name="trending-up" size={32} color="#FFA500" />
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {playerStats.avgAssistsPerGame}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Avg Assists/Game
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <Ionicons name="pulse" size={32} color={theme.primary} />
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {(
+                  parseFloat(playerStats.avgGoalsPerGame) +
+                  parseFloat(playerStats.avgAssistsPerGame)
+                ).toFixed(2)}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Avg Contributions
+              </Text>
             </View>
           </View>
         </View>
 
         {/* Discipline */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Discipline</Text>
-          
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Discipline
+          </Text>
+
           <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
               <View style={styles.yellowCardIcon} />
-              <Text style={styles.statValue}>{playerStats.totalYellowCards}</Text>
-              <Text style={styles.statLabel}>Yellow Cards</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <View style={styles.redCardIcon} />
-              <Text style={styles.statValue}>{playerStats.totalRedCards}</Text>
-              <Text style={styles.statLabel}>Red Cards</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <Ionicons name="shield-checkmark" size={32} color={COLORS.success} />
-              <Text style={styles.statValue}>
-                {playerStats.totalMatches - playerStats.totalYellowCards - playerStats.totalRedCards}
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {playerStats.totalYellowCards}
               </Text>
-              <Text style={styles.statLabel}>Clean Matches</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Yellow Cards
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <View style={styles.redCardIcon} />
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {playerStats.totalRedCards}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Red Cards
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <Ionicons
+                name="shield-checkmark"
+                size={32}
+                color={COLORS.success}
+              />
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {playerStats.totalMatches -
+                  playerStats.totalYellowCards -
+                  playerStats.totalRedCards}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Clean Matches
+              </Text>
             </View>
           </View>
         </View>
@@ -215,8 +407,8 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: COLORS.background,
   },
   loadingText: {
@@ -234,17 +426,17 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: COLORS.primary,
     padding: 25,
-    alignItems: 'center',
+    alignItems: "center",
   },
   playerName: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
     marginBottom: 5,
   },
   teamName: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: "rgba(255, 255, 255, 0.9)",
   },
   section: {
     marginTop: 15,
@@ -252,33 +444,33 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 15,
     paddingHorizontal: 5,
   },
   statsGrid: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     marginBottom: 10,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 15,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 110,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   statValue: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
     marginTop: 8,
     marginBottom: 4,
@@ -286,23 +478,23 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
   },
   yellowCardIcon: {
     width: 20,
     height: 28,
-    backgroundColor: '#FFD700',
+    backgroundColor: "#FFD700",
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#000',
+    borderColor: "#000",
   },
   redCardIcon: {
     width: 20,
     height: 28,
-    backgroundColor: '#DC143C',
+    backgroundColor: "#DC143C",
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#8B0000',
+    borderColor: "#8B0000",
   },
 });
 

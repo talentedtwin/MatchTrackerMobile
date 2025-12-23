@@ -26,27 +26,29 @@ import AddTeamScreen from "../screens/AddTeamScreen";
 import SignInScreen from "../screens/SignInScreen";
 import SignUpScreen from "../screens/SignUpScreen";
 import { COLORS } from "../config/constants";
+import { useTheme } from "../contexts/ThemeContext";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 // Bottom Tab Navigator for main screens
 const TabNavigator = () => {
+  const { theme } = useTheme();
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.textSecondary,
         tabBarStyle: {
-          backgroundColor: "#fff",
+          backgroundColor: theme.cardBackground,
           borderTopWidth: 1,
-          borderTopColor: COLORS.gray[200],
+          borderTopColor: theme.border,
           paddingBottom: 15,
           paddingTop: 5,
           height: 70,
         },
         headerStyle: {
-          backgroundColor: COLORS.primary,
+          backgroundColor: theme.primary,
         },
         headerTintColor: "#fff",
         headerTitleStyle: {
@@ -114,6 +116,7 @@ const TabNavigator = () => {
 };
 
 const AppNavigator = () => {
+  const { theme } = useTheme();
   const { isSignedIn, isLoaded, getToken } = useAuth();
   const { user } = useUser();
   const posthog = usePostHog();
@@ -210,10 +213,14 @@ const AppNavigator = () => {
   // Show loading screen while Clerk initializes
   if (!isLoaded) {
     return (
-      <View style={styles.loadingContainer}>
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
+      >
         <Text style={styles.logo}>⚽</Text>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>MatchTracker</Text>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.primary }]}>
+          MatchTracker
+        </Text>
       </View>
     );
   }
@@ -223,7 +230,7 @@ const AppNavigator = () => {
       <Stack.Navigator
         screenOptions={{
           headerStyle: {
-            backgroundColor: COLORS.primary,
+            backgroundColor: theme.primary,
           },
           headerTintColor: "#fff",
           headerTitleStyle: {

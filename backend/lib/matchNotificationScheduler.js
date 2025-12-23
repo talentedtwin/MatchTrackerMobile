@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { getPrisma } from "./prisma.js";
 import { sendMatchReminderNotification } from "./notificationService.js";
 import { sendMatchReminderEmail } from "./emailService.js";
+import EncryptionService from "./encryption.js";
 
 /**
  * Check for matches starting in 5-15 minutes and send notifications
@@ -103,7 +104,13 @@ async function checkUpcomingMatches() {
       // Send email notification if enabled
       if (match.user?.emailNotifications && match.user?.email) {
         try {
-          await sendMatchReminderEmail(match.user.email, match.user.name, {
+          // Decrypt email and name before sending
+          const decryptedEmail = EncryptionService.decrypt(match.user.email);
+          const decryptedName = match.user.name
+            ? EncryptionService.decrypt(match.user.name)
+            : null;
+
+          await sendMatchReminderEmail(decryptedEmail, decryptedName, {
             id: match.id,
             opponent: match.opponent,
             venue: match.venue || "TBD",
@@ -112,18 +119,18 @@ async function checkUpcomingMatches() {
           });
 
           console.log(
-            `✅ Sent email notification for match ${match.id} to ${match.user.email} (${minutesUntil} min before match)`
+            `✅ Sent email notification for match ${match.id} to ${decryptedEmail} (${minutesUntil} min before match)`
           );
           notificationSent = true;
         } catch (error) {
           console.error(
-            `❌ Failed to send email notification for match ${match.id}:`,
+            `❌ Failed to send match reminder email to ${match.user.id}:${match.user.email}:`,
             error
           );
         }
       } else if (!match.user?.emailNotifications) {
         console.log(
-          `⚠️ Email notifications disabled for user ${match.user?.id} (${match.user?.email})`
+          `⚠️ Email notifications disabled for user ${match.user?.id}`
         );
       }
 

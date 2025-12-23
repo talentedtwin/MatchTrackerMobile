@@ -78,6 +78,7 @@ model Match {
   matchType            String            @default("league")
   notes                String?
   selectedPlayerIds    String[]          @default([])
+  playerOfTheMatchId   String?
   notificationSent     Boolean           @default(false)
   notificationSentAt   DateTime?
   createdAt            DateTime          @default(now())
@@ -95,6 +96,7 @@ model Match {
   @@index([date, isFinished, notificationSent])
   @@index([teamId, date])
   @@index([teamId, isFinished])
+  @@index([playerOfTheMatchId])
   @@map("matches")
 }
 

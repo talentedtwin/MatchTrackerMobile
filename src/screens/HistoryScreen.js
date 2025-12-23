@@ -13,18 +13,31 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useMatches } from "../hooks/useResources";
 import { useTeamContext } from "../contexts/TeamContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { COLORS, MATCH_TYPES, VENUE_TYPES } from "../config/constants";
 import { formatDate, getMatchResult, getResultColor } from "../utils/helpers";
 
 // Memoized MatchCard component
-const MatchCard = memo(({ match, onPress }) => {
+const MatchCard = memo(({ match, onPress, theme }) => {
   const result = getMatchResult(match.goalsFor, match.goalsAgainst);
   const resultColor = getResultColor(result);
 
   return (
-    <TouchableOpacity style={styles.matchCard} onPress={() => onPress(match)}>
+    <TouchableOpacity
+      style={[
+        styles.matchCard,
+        {
+          backgroundColor: theme.cardBackground,
+          shadowColor: theme.shadow,
+          borderColor: theme.border,
+        },
+      ]}
+      onPress={() => onPress(match)}
+    >
       <View style={styles.matchHeader}>
-        <Text style={styles.matchOpponent}>{match.opponent}</Text>
+        <Text style={[styles.matchOpponent, { color: theme.text }]}>
+          {match.opponent}
+        </Text>
         <View style={[styles.resultBadge, { backgroundColor: resultColor }]}>
           <Text style={styles.resultText}>
             {result ? result.toUpperCase() : "SCH"}
@@ -34,23 +47,30 @@ const MatchCard = memo(({ match, onPress }) => {
       <View style={styles.matchRow}>
         <View style={styles.matchInfo}>
           <View style={styles.matchInfoItem}>
-            <Ionicons name="calendar" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.matchDate}>{formatDate(match.date)}</Text>
+            <Ionicons name="calendar" size={14} color={theme.textSecondary} />
+            <Text style={[styles.matchDate, { color: theme.textSecondary }]}>
+              {formatDate(match.date)}
+            </Text>
           </View>
           <View style={styles.matchInfoItem}>
-            <Ionicons name="location" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.matchDate}>
+            <Ionicons name="location" size={14} color={theme.textSecondary} />
+            <Text style={[styles.matchDate, { color: theme.textSecondary }]}>
               {match.venue === "home" ? "Home" : "Away"}
             </Text>
           </View>
-          <View style={styles.matchTypeBadge}>
-            <Text style={styles.matchTypeText}>
+          <View
+            style={[
+              styles.matchTypeBadge,
+              { backgroundColor: theme.background, borderColor: theme.border },
+            ]}
+          >
+            <Text style={[styles.matchTypeText, { color: theme.text }]}>
               {match.matchType.toUpperCase()}
             </Text>
           </View>
         </View>
         {match.isFinished && (
-          <Text style={styles.score}>
+          <Text style={[styles.score, { color: theme.text }]}>
             {match.goalsFor} - {match.goalsAgainst}
           </Text>
         )}
@@ -60,6 +80,7 @@ const MatchCard = memo(({ match, onPress }) => {
 });
 
 const HistoryScreen = ({ navigation }) => {
+  const { theme } = useTheme();
   const { selectedTeamId } = useTeamContext();
   const [filterType, setFilterType] = useState("all"); // 'all', 'league', 'cup'
   const [filterVenue, setFilterVenue] = useState("all"); // 'all', 'home', 'away'
@@ -174,19 +195,30 @@ const HistoryScreen = ({ navigation }) => {
   const keyExtractor = useCallback((item) => item.id, []);
 
   const renderItem = useCallback(
-    ({ item }) => <MatchCard match={item} onPress={handleMatchPress} />,
-    [handleMatchPress]
+    ({ item }) => (
+      <MatchCard match={item} onPress={handleMatchPress} theme={theme} />
+    ),
+    [handleMatchPress, theme]
   );
 
   const ListHeaderComponent = useMemo(
     () => (
       <View>
         {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color={COLORS.textSecondary} />
+        <View
+          style={[
+            styles.searchContainer,
+            {
+              backgroundColor: theme.cardBackground,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <Ionicons name="search" size={20} color={theme.textSecondary} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme.text }]}
             placeholder="Search matches by opponent..."
+            placeholderTextColor={theme.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             returnKeyType="search"
@@ -196,7 +228,7 @@ const HistoryScreen = ({ navigation }) => {
               <Ionicons
                 name="close-circle"
                 size={20}
-                color={COLORS.textSecondary}
+                color={theme.textSecondary}
               />
             </TouchableOpacity>
           )}
@@ -204,32 +236,49 @@ const HistoryScreen = ({ navigation }) => {
 
         {/* Stats Summary */}
         {stats.total > 0 && (
-          <View style={styles.statsContainer}>
+          <View
+            style={[
+              styles.statsContainer,
+              { backgroundColor: theme.cardBackground },
+            ]}
+          >
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{stats.wins}</Text>
-              <Text style={styles.statLabel}>Wins</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {stats.wins}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Wins
+              </Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: COLORS.warning }]}>
                 {stats.draws}
               </Text>
-              <Text style={styles.statLabel}>Draws</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Draws
+              </Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: COLORS.error }]}>
                 {stats.losses}
               </Text>
-              <Text style={styles.statLabel}>Losses</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Losses
+              </Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{stats.goalsFor}</Text>
-              <Text style={styles.statLabel}>Goals</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {stats.goalsFor}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                Goals
+              </Text>
             </View>
           </View>
         )}
       </View>
     ),
-    [searchQuery, stats]
+    [searchQuery, stats, theme]
   );
 
   const ListEmptyComponent = useMemo(
@@ -238,13 +287,15 @@ const HistoryScreen = ({ navigation }) => {
         <Ionicons
           name="calendar-outline"
           size={64}
-          color={COLORS.textSecondary}
+          color={theme.textSecondary}
         />
-        <Text style={styles.emptyText}>
+        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
           {loading ? "Loading matches..." : "No matches found"}
         </Text>
         {!loading && searchQuery && (
-          <Text style={styles.emptySubtext}>Try adjusting your search</Text>
+          <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+            Try adjusting your search
+          </Text>
         )}
         {!loading && !showScheduled && filteredMatches.length === 0 && (
           <TouchableOpacity
@@ -256,23 +307,33 @@ const HistoryScreen = ({ navigation }) => {
         )}
       </View>
     ),
-    [loading, searchQuery, showScheduled, filteredMatches.length, navigation]
+    [loading, searchQuery, theme]
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Toggle between Scheduled and History */}
-      <View style={styles.toggleContainer}>
+      <View
+        style={[
+          styles.toggleContainer,
+          { backgroundColor: theme.cardBackground },
+        ]}
+      >
         <TouchableOpacity
           style={[
             styles.toggleButton,
-            !showScheduled && styles.toggleButtonActive,
+            { backgroundColor: theme.background },
+            !showScheduled && [
+              styles.toggleButtonActive,
+              { backgroundColor: theme.primary },
+            ],
           ]}
           onPress={() => setShowScheduled(false)}
         >
           <Text
             style={[
               styles.toggleButtonText,
+              { color: theme.text },
               !showScheduled && styles.toggleButtonTextActive,
             ]}
           >
@@ -282,13 +343,18 @@ const HistoryScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[
             styles.toggleButton,
-            showScheduled && styles.toggleButtonActive,
+            { backgroundColor: theme.background },
+            showScheduled && [
+              styles.toggleButtonActive,
+              { backgroundColor: theme.primary },
+            ],
           ]}
           onPress={() => setShowScheduled(true)}
         >
           <Text
             style={[
               styles.toggleButtonText,
+              { color: theme.text },
               showScheduled && styles.toggleButtonTextActive,
             ]}
           >
@@ -298,15 +364,30 @@ const HistoryScreen = ({ navigation }) => {
       </View>
 
       {/* Filter Button */}
-      <View style={styles.filterButtonContainer}>
+      <View
+        style={[
+          styles.filterButtonContainer,
+          { backgroundColor: theme.cardBackground },
+        ]}
+      >
         <TouchableOpacity
-          style={styles.filterButton}
+          style={[
+            styles.filterButton,
+            {
+              backgroundColor: theme.cardBackground,
+              borderColor: theme.border,
+            },
+          ]}
           onPress={() => setFilterModalVisible(true)}
         >
-          <Ionicons name="filter" size={20} color={COLORS.primary} />
-          <Text style={styles.filterButtonText}>Filters</Text>
+          <Ionicons name="filter" size={20} color={theme.primary} />
+          <Text style={[styles.filterButtonText, { color: theme.text }]}>
+            Filters
+          </Text>
           {activeFilterCount > 0 && (
-            <View style={styles.filterBadge}>
+            <View
+              style={[styles.filterBadge, { backgroundColor: theme.primary }]}
+            >
               <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
             </View>
           )}
@@ -321,28 +402,48 @@ const HistoryScreen = ({ navigation }) => {
         onRequestClose={() => setFilterModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.cardBackground },
+            ]}
+          >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filters</Text>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                Filters
+              </Text>
               <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
-                <Ionicons name="close" size={24} color={COLORS.text} />
+                <Ionicons name="close" size={24} color={theme.text} />
               </TouchableOpacity>
             </View>
 
             {/* Match Type Filter */}
             <View style={styles.filterSection}>
-              <Text style={styles.filterSectionTitle}>Match Type</Text>
+              <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
+                Match Type
+              </Text>
               <View style={styles.filterOptions}>
                 <TouchableOpacity
                   style={[
                     styles.filterOption,
-                    filterType === "all" && styles.filterOptionActive,
+                    {
+                      backgroundColor: theme.background,
+                      borderColor: theme.border,
+                    },
+                    filterType === "all" && [
+                      styles.filterOptionActive,
+                      {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      },
+                    ],
                   ]}
                   onPress={() => setFilterType("all")}
                 >
                   <Text
                     style={[
                       styles.filterOptionText,
+                      { color: theme.text },
                       filterType === "all" && styles.filterOptionTextActive,
                     ]}
                   >
@@ -352,13 +453,24 @@ const HistoryScreen = ({ navigation }) => {
                 <TouchableOpacity
                   style={[
                     styles.filterOption,
-                    filterType === "league" && styles.filterOptionActive,
+                    {
+                      backgroundColor: theme.background,
+                      borderColor: theme.border,
+                    },
+                    filterType === "league" && [
+                      styles.filterOptionActive,
+                      {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      },
+                    ],
                   ]}
                   onPress={() => setFilterType("league")}
                 >
                   <Text
                     style={[
                       styles.filterOptionText,
+                      { color: theme.text },
                       filterType === "league" && styles.filterOptionTextActive,
                     ]}
                   >
@@ -368,13 +480,24 @@ const HistoryScreen = ({ navigation }) => {
                 <TouchableOpacity
                   style={[
                     styles.filterOption,
-                    filterType === "cup" && styles.filterOptionActive,
+                    {
+                      backgroundColor: theme.background,
+                      borderColor: theme.border,
+                    },
+                    filterType === "cup" && [
+                      styles.filterOptionActive,
+                      {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      },
+                    ],
                   ]}
                   onPress={() => setFilterType("cup")}
                 >
                   <Text
                     style={[
                       styles.filterOptionText,
+                      { color: theme.text },
                       filterType === "cup" && styles.filterOptionTextActive,
                     ]}
                   >
@@ -384,13 +507,24 @@ const HistoryScreen = ({ navigation }) => {
                 <TouchableOpacity
                   style={[
                     styles.filterOption,
-                    filterType === "friendly" && styles.filterOptionActive,
+                    {
+                      backgroundColor: theme.background,
+                      borderColor: theme.border,
+                    },
+                    filterType === "friendly" && [
+                      styles.filterOptionActive,
+                      {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      },
+                    ],
                   ]}
                   onPress={() => setFilterType("friendly")}
                 >
                   <Text
                     style={[
                       styles.filterOptionText,
+                      { color: theme.text },
                       filterType === "friendly" &&
                         styles.filterOptionTextActive,
                     ]}
@@ -403,18 +537,31 @@ const HistoryScreen = ({ navigation }) => {
 
             {/* Venue Filter */}
             <View style={styles.filterSection}>
-              <Text style={styles.filterSectionTitle}>Venue</Text>
+              <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
+                Venue
+              </Text>
               <View style={styles.filterOptions}>
                 <TouchableOpacity
                   style={[
                     styles.filterOption,
-                    filterVenue === "all" && styles.filterOptionActive,
+                    {
+                      backgroundColor: theme.background,
+                      borderColor: theme.border,
+                    },
+                    filterVenue === "all" && [
+                      styles.filterOptionActive,
+                      {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      },
+                    ],
                   ]}
                   onPress={() => setFilterVenue("all")}
                 >
                   <Text
                     style={[
                       styles.filterOptionText,
+                      { color: theme.text },
                       filterVenue === "all" && styles.filterOptionTextActive,
                     ]}
                   >
@@ -424,13 +571,24 @@ const HistoryScreen = ({ navigation }) => {
                 <TouchableOpacity
                   style={[
                     styles.filterOption,
-                    filterVenue === "home" && styles.filterOptionActive,
+                    {
+                      backgroundColor: theme.background,
+                      borderColor: theme.border,
+                    },
+                    filterVenue === "home" && [
+                      styles.filterOptionActive,
+                      {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      },
+                    ],
                   ]}
                   onPress={() => setFilterVenue("home")}
                 >
                   <Text
                     style={[
                       styles.filterOptionText,
+                      { color: theme.text },
                       filterVenue === "home" && styles.filterOptionTextActive,
                     ]}
                   >
@@ -440,13 +598,24 @@ const HistoryScreen = ({ navigation }) => {
                 <TouchableOpacity
                   style={[
                     styles.filterOption,
-                    filterVenue === "away" && styles.filterOptionActive,
+                    {
+                      backgroundColor: theme.background,
+                      borderColor: theme.border,
+                    },
+                    filterVenue === "away" && [
+                      styles.filterOptionActive,
+                      {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      },
+                    ],
                   ]}
                   onPress={() => setFilterVenue("away")}
                 >
                   <Text
                     style={[
                       styles.filterOptionText,
+                      { color: theme.text },
                       filterVenue === "away" && styles.filterOptionTextActive,
                     ]}
                   >
@@ -459,13 +628,23 @@ const HistoryScreen = ({ navigation }) => {
             {/* Modal Actions */}
             <View style={styles.modalActions}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.clearButton]}
+                style={[
+                  styles.modalButton,
+                  styles.clearButton,
+                  { borderColor: theme.border },
+                ]}
                 onPress={handleClearFilters}
               >
-                <Text style={styles.clearButtonText}>Clear All</Text>
+                <Text style={[styles.clearButtonText, { color: theme.text }]}>
+                  Clear All
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.applyButton]}
+                style={[
+                  styles.modalButton,
+                  styles.applyButton,
+                  { backgroundColor: theme.primary },
+                ]}
                 onPress={handleApplyFilters}
               >
                 <Text style={styles.applyButtonText}>Apply</Text>
@@ -487,7 +666,8 @@ const HistoryScreen = ({ navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[COLORS.primary]}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
           />
         }
         contentContainerStyle={styles.listContent}
@@ -586,7 +766,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   filterButtonContainer: {
-    backgroundColor: "#fff",
     paddingHorizontal: 15,
     paddingVertical: 10,
     borderBottomWidth: 1,
