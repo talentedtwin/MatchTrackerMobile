@@ -17,7 +17,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.talentedtwin.matchtrackermobile",
       "infoPlist": {
-        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized content to you."
+        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized content to you.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

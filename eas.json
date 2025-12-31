@@ -8,6 +8,9 @@
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
+      "ios": {
+        "simulator": true
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://matchtracker-app.vercel.app/api",
         "EXPO_PUBLIC_APP_NAME": "MatchTrackerDevelopment",
