@@ -214,6 +214,16 @@ export const userApi = {
   },
 };
 
+// Upload API
+export const uploadApi = {
+  async uploadImage(base64Image, folder = "team-avatars") {
+    return apiClient.post("/upload", {
+      image: base64Image,
+      folder,
+    });
+  },
+};
+
 // Health Check
 export const healthApi = {
   async check() {

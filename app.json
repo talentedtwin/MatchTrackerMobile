@@ -2,7 +2,7 @@
   "expo": {
     "name": "MatchTrackerMobile",
     "slug": "MatchTrackerMobile",
-    "version": "1.0.15",
+    "version": "1.0.16s",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -14,7 +14,7 @@
       "backgroundColor": "#2563eb"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.talentedtwin.matchtrackermobile",
       "infoPlist": {
         "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized content to you.",

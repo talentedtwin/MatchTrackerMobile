@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Modal,
   RefreshControl,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { usePlayers, useTeams } from "../hooks/useResources";
@@ -86,9 +87,30 @@ const TeamCard = memo(
       >
         <View style={styles.teamHeader}>
           <View style={styles.teamInfo}>
-            <Text style={[styles.teamName, { color: theme.text }]}>
-              {team.name}
-            </Text>
+            <View style={styles.teamNameRow}>
+              {team.avatar && (
+                <Image
+                  source={{ uri: team.avatar }}
+                  style={styles.teamAvatar}
+                  onError={(error) =>
+                    console.log(
+                      "PlayersScreen - Team avatar error:",
+                      team.name,
+                      error.nativeEvent.error
+                    )
+                  }
+                  onLoad={() =>
+                    console.log(
+                      "PlayersScreen - Team avatar loaded:",
+                      team.name
+                    )
+                  }
+                />
+              )}
+              <Text style={[styles.teamName, { color: theme.text }]}>
+                {team.name}
+              </Text>
+            </View>
             <Text
               style={[styles.teamPlayerCount, { color: theme.textSecondary }]}
             >
@@ -923,11 +945,23 @@ const styles = StyleSheet.create({
   teamInfo: {
     flex: 1,
   },
+  teamNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 5,
+  },
+  teamAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
   teamName: {
     fontSize: 18,
     fontWeight: "bold",
     color: COLORS.text,
-    marginBottom: 5,
   },
   teamPlayerCount: {
     fontSize: 14,

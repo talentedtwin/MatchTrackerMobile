@@ -236,6 +236,7 @@ const AppNavigator = () => {
           headerTitleStyle: {
             fontWeight: "bold",
           },
+          headerBackTitle: "",
         }}
       >
         {!isSignedIn ? (

@@ -8,11 +8,14 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useTeams } from "../hooks/useResources";
 import { COLORS } from "../config/constants";
 import { useTheme } from "../contexts/ThemeContext";
+import { uploadApi } from "../services/api";
 
 const AddTeamScreen = ({ navigation, route }) => {
   const { theme } = useTheme();
@@ -21,6 +24,8 @@ const AddTeamScreen = ({ navigation, route }) => {
   const isEditing = !!editingTeam;
 
   const [teamName, setTeamName] = useState(editingTeam?.name || "");
+  const [avatarUri, setAvatarUri] = useState(editingTeam?.avatar || null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
@@ -39,6 +44,70 @@ const AddTeamScreen = ({ navigation, route }) => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const pickImage = async () => {
+    try {
+      // Request permission
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Required",
+          "Please allow access to your photo library to upload a team avatar."
+        );
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+
+        // Upload to Cloudinary
+        setUploadingImage(true);
+        try {
+          const base64Image = `data:image/jpeg;base64,${asset.base64}`;
+          const uploadResponse = await uploadApi.uploadImage(base64Image);
+
+          if (uploadResponse.success) {
+            setAvatarUri(uploadResponse.url);
+            Alert.alert("Success", "Avatar uploaded successfully");
+          }
+        } catch (error) {
+          console.error("Error uploading image:", error);
+          Alert.alert("Error", "Failed to upload image. Please try again.");
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image. Please try again.");
+    }
+  };
+
+  const removeAvatar = () => {
+    Alert.alert(
+      "Remove Avatar",
+      "Are you sure you want to remove the team avatar?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => setAvatarUri(null),
+        },
+      ]
+    );
+  };
+
   const handleSubmit = async () => {
     if (!validateForm()) {
       return;
@@ -48,7 +117,13 @@ const AddTeamScreen = ({ navigation, route }) => {
     try {
       const teamData = {
         name: teamName.trim(),
+        avatar: avatarUri,
       };
+
+      console.log("📝 Submitting team data:", {
+        name: teamData.name,
+        hasAvatar: !!teamData.avatar,
+      });
 
       if (isEditing) {
         await updateTeam(editingTeam.id, teamData);
@@ -76,6 +151,89 @@ const AddTeamScreen = ({ navigation, route }) => {
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
             Team Information
           </Text>
+
+          {/* Team Avatar */}
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Ionicons name="image" size={18} color={theme.primary} />
+              <Text style={[styles.label, { color: theme.text }]}>
+                Team Avatar
+              </Text>
+            </View>
+
+            <View style={styles.avatarContainer}>
+              {avatarUri ? (
+                <View style={styles.avatarPreview}>
+                  <Image
+                    source={{ uri: avatarUri }}
+                    style={styles.avatarImage}
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.removeAvatarButton,
+                      { backgroundColor: COLORS.error },
+                    ]}
+                    onPress={removeAvatar}
+                    disabled={uploadingImage}
+                  >
+                    <Ionicons name="close" size={16} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.avatarPlaceholder,
+                    {
+                      borderColor: theme.border,
+                      backgroundColor: theme.cardBackground,
+                    },
+                  ]}
+                  onPress={pickImage}
+                  disabled={uploadingImage}
+                >
+                  {uploadingImage ? (
+                    <ActivityIndicator color={theme.primary} />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name="camera"
+                        size={32}
+                        color={theme.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.avatarPlaceholderText,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        Tap to upload
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {avatarUri && (
+                <TouchableOpacity
+                  style={[
+                    styles.changeAvatarButton,
+                    { backgroundColor: theme.primary },
+                  ]}
+                  onPress={pickImage}
+                  disabled={uploadingImage}
+                >
+                  <Ionicons name="camera" size={16} color="#fff" />
+                  <Text style={styles.changeAvatarText}>
+                    {uploadingImage ? "Uploading..." : "Change Avatar"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <Text style={[styles.helperText, { color: theme.textSecondary }]}>
+              Upload a logo or image for your team (optional)
+            </Text>
+          </View>
 
           {/* Team Name */}
           <View style={styles.inputGroup}>
@@ -288,6 +446,64 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  avatarContainer: {
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  avatarPreview: {
+    position: "relative",
+    marginBottom: 12,
+  },
+  avatarImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: COLORS.primary,
+  },
+  removeAvatarButton: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.error,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  avatarPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 2,
+    borderColor: COLORS.gray[300],
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.gray[50],
+  },
+  avatarPlaceholderText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  changeAvatarButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  changeAvatarText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 

@@ -29,6 +29,7 @@ async function handler(req, res) {
             select: {
               id: true,
               name: true,
+              avatar: true,
               createdAt: true,
             },
             orderBy: {
@@ -93,7 +94,12 @@ async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { name } = req.body;
+      const { name, avatar } = req.body;
+
+      console.log("📝 Creating team with data:", {
+        name,
+        avatar: avatar ? "✓" : "✗",
+      });
 
       if (!name) {
         return res.status(400).json({
@@ -106,11 +112,17 @@ async function handler(req, res) {
         const result = await tx.team.create({
           data: {
             name: EncryptionService.encrypt(name),
+            ...(avatar && { avatar }),
             userId,
           },
           include: {
             players: true,
           },
+        });
+
+        console.log("✅ Team created:", {
+          id: result.id,
+          hasAvatar: !!result.avatar,
         });
 
         return {

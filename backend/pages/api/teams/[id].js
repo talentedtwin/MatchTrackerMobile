@@ -4,10 +4,10 @@
  * PUT /api/teams/[id] - Update team
  * DELETE /api/teams/[id] - Delete team (soft delete)
  */
-import { requireAuth } from '../../../middleware/auth.js';
-import { withDatabaseUserContext } from '../../../lib/db-utils.js';
-import { getPrisma } from '../../../lib/prisma.js';
-import EncryptionService from '../../../lib/encryption.js';
+import { requireAuth } from "../../../middleware/auth.js";
+import { withDatabaseUserContext } from "../../../lib/db-utils.js";
+import { getPrisma } from "../../../lib/prisma.js";
+import EncryptionService from "../../../lib/encryption.js";
 
 async function handler(req, res) {
   try {
@@ -18,11 +18,11 @@ async function handler(req, res) {
     if (!id) {
       return res.status(400).json({
         success: false,
-        error: 'Team ID is required',
+        error: "Team ID is required",
       });
     }
 
-    if (req.method === 'GET') {
+    if (req.method === "GET") {
       const team = await withDatabaseUserContext(userId, async (tx) => {
         const result = await tx.team.findFirst({
           where: {
@@ -36,7 +36,7 @@ async function handler(req, res) {
             },
             matches: {
               where: { isFinished: true },
-              orderBy: { date: 'desc' },
+              orderBy: { date: "desc" },
               take: 10,
             },
           },
@@ -49,7 +49,7 @@ async function handler(req, res) {
         return {
           ...result,
           name: EncryptionService.decrypt(result.name),
-          players: result.players.map(player => ({
+          players: result.players.map((player) => ({
             ...player,
             name: EncryptionService.decrypt(player.name),
           })),
@@ -59,7 +59,7 @@ async function handler(req, res) {
       if (!team) {
         return res.status(404).json({
           success: false,
-          error: 'Team not found',
+          error: "Team not found",
         });
       }
 
@@ -69,13 +69,19 @@ async function handler(req, res) {
       });
     }
 
-    if (req.method === 'PUT') {
-      const { name } = req.body;
+    if (req.method === "PUT") {
+      const { name, avatar } = req.body;
+
+      console.log("📝 Updating team with data:", {
+        id,
+        name,
+        avatar: avatar !== undefined ? (avatar ? "✓" : "null") : "undefined",
+      });
 
       if (!name) {
         return res.status(400).json({
           success: false,
-          error: 'Team name is required',
+          error: "Team name is required",
         });
       }
 
@@ -84,6 +90,7 @@ async function handler(req, res) {
           where: { id },
           data: {
             name: EncryptionService.encrypt(name),
+            ...(avatar !== undefined && { avatar }),
           },
           include: {
             players: {
@@ -92,10 +99,15 @@ async function handler(req, res) {
           },
         });
 
+        console.log("✅ Team updated:", {
+          id: result.id,
+          hasAvatar: !!result.avatar,
+        });
+
         return {
           ...result,
           name: EncryptionService.decrypt(result.name),
-          players: result.players.map(player => ({
+          players: result.players.map((player) => ({
             ...player,
             name: EncryptionService.decrypt(player.name),
           })),
@@ -108,7 +120,7 @@ async function handler(req, res) {
       });
     }
 
-    if (req.method === 'DELETE') {
+    if (req.method === "DELETE") {
       await withDatabaseUserContext(userId, async (tx) => {
         await tx.team.update({
           where: { id },
@@ -121,28 +133,29 @@ async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        message: 'Team deleted successfully',
+        message: "Team deleted successfully",
       });
     }
 
     return res.status(405).json({
       success: false,
-      error: 'Method not allowed',
+      error: "Method not allowed",
     });
   } catch (error) {
-    console.error('Team API error:', error);
+    console.error("Team API error:", error);
 
-    if (error.message === 'Authentication required') {
+    if (error.message === "Authentication required") {
       return res.status(401).json({
         success: false,
-        error: 'Unauthorized',
+        error: "Unauthorized",
       });
     }
 
     return res.status(500).json({
       success: false,
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      error: "Internal server error",
+      message:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 }

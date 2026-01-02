@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONTS } from "../config/constants";
@@ -16,6 +17,17 @@ const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
   const [modalVisible, setModalVisible] = useState(false);
 
   const selectedTeam = teams.find((t) => t.id === selectedTeamId);
+
+  console.log(
+    "TeamSelector - Selected team:",
+    selectedTeam?.name,
+    "Avatar:",
+    selectedTeam?.avatar
+  );
+  console.log(
+    "TeamSelector - All teams:",
+    teams.map((t) => ({ name: t.name, hasAvatar: !!t.avatar }))
+  );
 
   const handleSelectTeam = (teamId) => {
     onSelectTeam(teamId);
@@ -41,7 +53,20 @@ const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
         onPress={() => setModalVisible(true)}
       >
         <View style={styles.selectorContent}>
-          <Ionicons name="people" size={20} color={theme.primary} />
+          {selectedTeam?.avatar ? (
+            <Image
+              source={{ uri: selectedTeam.avatar }}
+              style={styles.selectorAvatar}
+              onError={(error) =>
+                console.log("Image load error:", error.nativeEvent.error)
+              }
+              onLoad={() =>
+                console.log("Image loaded successfully:", selectedTeam.avatar)
+              }
+            />
+          ) : (
+            <Ionicons name="people" size={20} color={theme.primary} />
+          )}
           <Text style={[styles.selectorText, { color: theme.text }]}>
             {selectedTeam ? selectedTeam.name : "All Teams"}
           </Text>
@@ -140,15 +165,32 @@ const TeamSelector = ({ teams, selectedTeamId, onSelectTeam }) => {
                   onPress={() => handleSelectTeam(team.id)}
                 >
                   <View style={styles.teamOptionContent}>
-                    <Ionicons
-                      name="people"
-                      size={24}
-                      color={
-                        selectedTeamId === team.id
-                          ? theme.primary
-                          : theme.textSecondary
-                      }
-                    />
+                    {team.avatar ? (
+                      <Image
+                        source={{ uri: team.avatar }}
+                        style={styles.teamAvatar}
+                        onError={(error) =>
+                          console.log(
+                            "Team avatar load error:",
+                            team.name,
+                            error.nativeEvent.error
+                          )
+                        }
+                        onLoad={() =>
+                          console.log("Team avatar loaded:", team.name)
+                        }
+                      />
+                    ) : (
+                      <Ionicons
+                        name="people"
+                        size={24}
+                        color={
+                          selectedTeamId === team.id
+                            ? theme.primary
+                            : theme.textSecondary
+                        }
+                      />
+                    )}
                     <View style={styles.teamInfo}>
                       <Text
                         style={[
@@ -198,6 +240,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+  },
+  selectorAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
   },
   selectorText: {
     flex: 1,
@@ -250,6 +299,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     flex: 1,
+  },
+  teamAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
   },
   teamInfo: {
     flex: 1,

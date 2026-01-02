@@ -37,6 +37,14 @@
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_dW5pdGVkLWxpb25maXNoLTkwLmNsZXJrLmFjY291bnRzLmRldiQ",
         "EXPO_PUBLIC_POSTHOG_API_KEY": "phc_PBaMiCW43b3M1RWGPBLXiM8UyCxCYNB1vZPqnXLCW0z"
       }
+    },
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "environment": "development"
     }
   },
   "submit": {
