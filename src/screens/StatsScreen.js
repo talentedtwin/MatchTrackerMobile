@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useMatches, usePlayers, useStats } from "../hooks/useResources";
@@ -36,8 +37,31 @@ const StatsScreen = ({ navigation }) => {
   } = usePlayers(selectedTeamId);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("overview"); // 'overview', 'players'
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [includeLeague, setIncludeLeague] = useState(true);
+  const [includeCup, setIncludeCup] = useState(true);
+  const [includeFriendly, setIncludeFriendly] = useState(true);
 
   const loading = statsLoading || matchesLoading || playersLoading;
+
+  // Count active filters (filters that exclude match types)
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (!includeLeague) count++;
+    if (!includeCup) count++;
+    if (!includeFriendly) count++;
+    return count;
+  }, [includeLeague, includeCup, includeFriendly]);
+
+  // Filter matches based on selected match types
+  const filteredMatches = useMemo(() => {
+    return matches.filter((match) => {
+      if (match.matchType === "league" && !includeLeague) return false;
+      if (match.matchType === "cup" && !includeCup) return false;
+      if (match.matchType === "friendly" && !includeFriendly) return false;
+      return true;
+    });
+  }, [matches, includeLeague, includeCup, includeFriendly]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -47,7 +71,7 @@ const StatsScreen = ({ navigation }) => {
 
   // Calculate additional stats
   const computedStats = useMemo(() => {
-    const completedMatches = matches.filter((m) => m.isFinished);
+    const completedMatches = filteredMatches.filter((m) => m.isFinished);
     const totalMatches = completedMatches.length;
 
     const wins = completedMatches.filter(
@@ -116,7 +140,7 @@ const StatsScreen = ({ navigation }) => {
       awayWins,
       recentForm,
     };
-  }, [matches]);
+  }, [filteredMatches]);
 
   // Top scorers and assisters
   const topScorers = useMemo(() => {
@@ -155,9 +179,10 @@ const StatsScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[
             styles.tab,
+            { backgroundColor: theme.background },
             activeTab === "overview" && [
               styles.activeTab,
-              { borderBottomColor: theme.primary },
+              { backgroundColor: theme.primary },
             ],
           ]}
           onPress={() => setActiveTab("overview")}
@@ -165,11 +190,8 @@ const StatsScreen = ({ navigation }) => {
           <Text
             style={[
               styles.tabText,
-              { color: theme.textSecondary },
-              activeTab === "overview" && [
-                styles.activeTabText,
-                { color: theme.primary },
-              ],
+              { color: theme.text },
+              activeTab === "overview" && styles.activeTabText,
             ]}
           >
             Overview
@@ -178,9 +200,10 @@ const StatsScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[
             styles.tab,
+            { backgroundColor: theme.background },
             activeTab === "players" && [
               styles.activeTab,
-              { borderBottomColor: theme.primary },
+              { backgroundColor: theme.primary },
             ],
           ]}
           onPress={() => setActiveTab("players")}
@@ -188,17 +211,252 @@ const StatsScreen = ({ navigation }) => {
           <Text
             style={[
               styles.tabText,
-              { color: theme.textSecondary },
-              activeTab === "players" && [
-                styles.activeTabText,
-                { color: theme.primary },
-              ],
+              { color: theme.text },
+              activeTab === "players" && styles.activeTabText,
             ]}
           >
             Players
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Filter Button */}
+      <View
+        style={[
+          styles.filterButtonContainer,
+          {
+            backgroundColor: theme.cardBackground,
+            borderBottomColor: theme.border,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            {
+              backgroundColor: theme.cardBackground,
+              borderColor: theme.border,
+            },
+          ]}
+          onPress={() => setFilterModalVisible(true)}
+        >
+          <Ionicons name="filter" size={20} color={theme.primary} />
+          <Text style={[styles.filterButtonText, { color: theme.text }]}>
+            Match Types
+          </Text>
+          {activeFilterCount > 0 && (
+            <View
+              style={[styles.filterBadge, { backgroundColor: COLORS.error }]}
+            >
+              <Text style={styles.filterBadgeText}>
+                {activeFilterCount} excluded
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={filterModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.cardBackground },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                Match Type Filters
+              </Text>
+              <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+                <Ionicons name="close" size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text
+              style={[styles.modalDescription, { color: theme.textSecondary }]}
+            >
+              Select which match types to include in statistics
+            </Text>
+
+            {/* Match Type Toggles */}
+            <View style={styles.filterSection}>
+              <TouchableOpacity
+                style={[
+                  styles.filterToggleRow,
+                  { borderBottomColor: theme.border },
+                ]}
+                onPress={() => setIncludeLeague(!includeLeague)}
+              >
+                <View style={styles.filterToggleLeft}>
+                  <Ionicons
+                    name="trophy"
+                    size={24}
+                    color={includeLeague ? theme.primary : theme.textSecondary}
+                  />
+                  <View style={styles.filterToggleInfo}>
+                    <Text
+                      style={[styles.filterToggleTitle, { color: theme.text }]}
+                    >
+                      League Matches
+                    </Text>
+                    <Text
+                      style={[
+                        styles.filterToggleSubtitle,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Competitive league games
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.toggleSwitch,
+                    includeLeague && { backgroundColor: theme.primary },
+                    !includeLeague && { backgroundColor: theme.border },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.toggleSwitchCircle,
+                      includeLeague && styles.toggleSwitchCircleActive,
+                    ]}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterToggleRow,
+                  { borderBottomColor: theme.border },
+                ]}
+                onPress={() => setIncludeCup(!includeCup)}
+              >
+                <View style={styles.filterToggleLeft}>
+                  <Ionicons
+                    name="medal"
+                    size={24}
+                    color={includeCup ? theme.primary : theme.textSecondary}
+                  />
+                  <View style={styles.filterToggleInfo}>
+                    <Text
+                      style={[styles.filterToggleTitle, { color: theme.text }]}
+                    >
+                      Cup Matches
+                    </Text>
+                    <Text
+                      style={[
+                        styles.filterToggleSubtitle,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Cup and tournament games
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.toggleSwitch,
+                    includeCup && { backgroundColor: theme.primary },
+                    !includeCup && { backgroundColor: theme.border },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.toggleSwitchCircle,
+                      includeCup && styles.toggleSwitchCircleActive,
+                    ]}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterToggleRow,
+                  { borderBottomColor: theme.border },
+                ]}
+                onPress={() => setIncludeFriendly(!includeFriendly)}
+              >
+                <View style={styles.filterToggleLeft}>
+                  <Ionicons
+                    name="people"
+                    size={24}
+                    color={
+                      includeFriendly ? theme.primary : theme.textSecondary
+                    }
+                  />
+                  <View style={styles.filterToggleInfo}>
+                    <Text
+                      style={[styles.filterToggleTitle, { color: theme.text }]}
+                    >
+                      Friendly Matches
+                    </Text>
+                    <Text
+                      style={[
+                        styles.filterToggleSubtitle,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Non-competitive friendlies
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.toggleSwitch,
+                    includeFriendly && { backgroundColor: theme.primary },
+                    !includeFriendly && { backgroundColor: theme.border },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.toggleSwitchCircle,
+                      includeFriendly && styles.toggleSwitchCircleActive,
+                    ]}
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Actions */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.clearButton,
+                  { borderColor: theme.border },
+                ]}
+                onPress={() => {
+                  setIncludeLeague(true);
+                  setIncludeCup(true);
+                  setIncludeFriendly(true);
+                }}
+              >
+                <Text style={[styles.clearButtonText, { color: theme.text }]}>
+                  Include All
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.applyButton,
+                  { backgroundColor: theme.primary },
+                ]}
+                onPress={() => setFilterModalVisible(false)}
+              >
+                <Text style={styles.applyButtonText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <ScrollView
         style={styles.content}
@@ -748,29 +1006,32 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: "row",
     backgroundColor: "#fff",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    padding: 15,
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
   },
   tab: {
     flex: 1,
-    padding: 15,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.gray[300],
     alignItems: "center",
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
+    backgroundColor: "#fff",
   },
   activeTab: {
-    borderBottomColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: COLORS.textSecondary,
   },
   activeTabText: {
-    color: COLORS.primary,
+    color: "#fff",
   },
   content: {
     flex: 1,
@@ -919,6 +1180,143 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: "center",
     paddingVertical: 20,
+  },
+  filterButtonContainer: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
+  },
+  filterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    backgroundColor: "#fff",
+  },
+  filterButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.primary,
+    marginLeft: 8,
+  },
+  filterBadge: {
+    backgroundColor: COLORS.error,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  filterBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "bold",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: COLORS.text,
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 20,
+  },
+  filterSection: {
+    marginBottom: 20,
+  },
+  filterToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
+  },
+  filterToggleLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  filterToggleInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  filterToggleTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  filterToggleSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  toggleSwitch: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.gray[300],
+    padding: 2,
+    justifyContent: "center",
+  },
+  toggleSwitchCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+  },
+  toggleSwitchCircleActive: {
+    alignSelf: "flex-end",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  clearButton: {
+    backgroundColor: COLORS.gray[200],
+  },
+  clearButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+  applyButton: {
+    backgroundColor: COLORS.primary,
+  },
+  applyButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
   },
 });
 

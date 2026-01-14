@@ -24,6 +24,8 @@ const EditMatchScreen = ({ route, navigation }) => {
   const { theme } = useTheme();
   const { players, loading: playersLoading } = usePlayers(selectedTeamId);
   const [saving, setSaving] = useState(false);
+  const [loadingMatch, setLoadingMatch] = useState(true);
+  const [fullMatch, setFullMatch] = useState(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -40,9 +42,67 @@ const EditMatchScreen = ({ route, navigation }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Initialize form data from match
+  // Fetch full match details on mount
   useEffect(() => {
-    if (match) {
+    const fetchMatchDetails = async () => {
+      try {
+        setLoadingMatch(true);
+        console.log(
+          "EditMatchScreen - Fetching match details for matchId:",
+          matchId
+        );
+        const matchDetails = await matchApi.getById(matchId);
+        console.log("EditMatchScreen - Received match details:", matchDetails);
+        // API returns { match: {...}, success: true }
+        const matchData = matchDetails.match || matchDetails;
+        setFullMatch(matchData);
+
+        // Initialize form with full match data
+        const formDataToSet = {
+          opponent: matchData.opponent || "",
+          date: matchData.date ? new Date(matchData.date) : new Date(),
+          matchType: matchData.matchType || "league",
+          venue: matchData.venue || "home",
+          notes: matchData.notes || "",
+          selectedPlayerIds: matchData.selectedPlayerIds || [],
+          playerOfTheMatchId: matchData.playerOfTheMatchId || null,
+        };
+        console.log("EditMatchScreen - Setting form data:", formDataToSet);
+        setFormData(formDataToSet);
+      } catch (error) {
+        console.error(
+          "EditMatchScreen - Failed to fetch match details:",
+          error
+        );
+        // Fallback to passed match data
+        if (match) {
+          console.log("EditMatchScreen - Using fallback match data:", match);
+          const fallbackFormData = {
+            opponent: match.opponent || "",
+            date: match.date ? new Date(match.date) : new Date(),
+            matchType: match.matchType || "league",
+            venue: match.venue || "home",
+            notes: match.notes || "",
+            selectedPlayerIds: match.selectedPlayerIds || [],
+            playerOfTheMatchId: match.playerOfTheMatchId || null,
+          };
+          console.log(
+            "EditMatchScreen - Setting fallback form data:",
+            fallbackFormData
+          );
+          setFormData(fallbackFormData);
+          setFullMatch(match);
+        }
+      } finally {
+        setLoadingMatch(false);
+      }
+    };
+
+    if (matchId) {
+      fetchMatchDetails();
+    } else if (match) {
+      // If no matchId but we have match data, use it directly
+      console.log("EditMatchScreen - No matchId, using passed match:", match);
       setFormData({
         opponent: match.opponent || "",
         date: match.date ? new Date(match.date) : new Date(),
@@ -52,8 +112,10 @@ const EditMatchScreen = ({ route, navigation }) => {
         selectedPlayerIds: match.selectedPlayerIds || [],
         playerOfTheMatchId: match.playerOfTheMatchId || null,
       });
+      setFullMatch(match);
+      setLoadingMatch(false);
     }
-  }, [match]);
+  }, [matchId, match]);
 
   const handleDateChange = (event, selectedDate) => {
     setShowDatePicker(Platform.OS === "ios");
@@ -131,8 +193,9 @@ const EditMatchScreen = ({ route, navigation }) => {
       };
 
       // If match is finished, ensure all selected players have stats entries
-      if (match.isFinished) {
-        const existingStats = match.playerStats || [];
+      if (fullMatch?.isFinished || match?.isFinished) {
+        const existingStats =
+          fullMatch?.playerStats || match?.playerStats || [];
         const playerStatsArray = formData.selectedPlayerIds.map((playerId) => {
           // Find existing stats for this player
           const existingStat = existingStats.find(
@@ -186,7 +249,7 @@ const EditMatchScreen = ({ route, navigation }) => {
     });
   };
 
-  if (playersLoading) {
+  if (loadingMatch || playersLoading) {
     return (
       <View
         style={[styles.centerContainer, { backgroundColor: theme.background }]}
@@ -547,7 +610,10 @@ const EditMatchScreen = ({ route, navigation }) => {
           </View>
 
           {/* Player of the Match (for finished or retrospective matches with selected players) */}
-          {(match?.isFinished ||
+          {(fullMatch?.isFinished ||
+            match?.isFinished ||
+            (fullMatch?.goalsFor !== undefined &&
+              fullMatch?.goalsAgainst !== undefined) ||
             (match?.goalsFor !== undefined &&
               match?.goalsAgainst !== undefined)) &&
             formData.selectedPlayerIds.length > 0 && (

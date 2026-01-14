@@ -120,3 +120,20 @@ model PlayerMatchStat {
   @@index([matchId, playerId])
   @@map("player_match_stats")
 }
+
+model WaitlistSignup {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  role          String?
+  otherRole     String?
+  consentGiven  Boolean  @default(false)
+  consentDate   DateTime?
+  signupSource  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([email])
+  @@index([createdAt])
+  @@map("waitlist_signups")
+}

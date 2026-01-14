@@ -421,9 +421,10 @@ const PlayersScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[
             styles.tab,
+            { backgroundColor: theme.background },
             activeTab === "teams" && [
               styles.activeTab,
-              { borderBottomColor: theme.primary },
+              { backgroundColor: theme.primary },
             ],
           ]}
           onPress={() => setActiveTab("teams")}
@@ -431,11 +432,8 @@ const PlayersScreen = ({ navigation }) => {
           <Text
             style={[
               styles.tabText,
-              { color: theme.textSecondary },
-              activeTab === "teams" && [
-                styles.activeTabText,
-                { color: theme.primary },
-              ],
+              { color: theme.text },
+              activeTab === "teams" && styles.activeTabText,
             ]}
           >
             Teams
@@ -444,9 +442,10 @@ const PlayersScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[
             styles.tab,
+            { backgroundColor: theme.background },
             activeTab === "players" && [
               styles.activeTab,
-              { borderBottomColor: theme.primary },
+              { backgroundColor: theme.primary },
             ],
           ]}
           onPress={() => setActiveTab("players")}
@@ -454,11 +453,8 @@ const PlayersScreen = ({ navigation }) => {
           <Text
             style={[
               styles.tabText,
-              { color: theme.textSecondary },
-              activeTab === "players" && [
-                styles.activeTabText,
-                { color: theme.primary },
-              ],
+              { color: theme.text },
+              activeTab === "players" && styles.activeTabText,
             ]}
           >
             Players
@@ -851,29 +847,32 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: "row",
     backgroundColor: "#fff",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    padding: 15,
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
   },
   tab: {
     flex: 1,
-    padding: 15,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.gray[300],
     alignItems: "center",
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
+    backgroundColor: "#fff",
   },
   activeTab: {
-    borderBottomColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: COLORS.textSecondary,
   },
   activeTabText: {
-    color: COLORS.primary,
+    color: "#fff",
   },
   searchContainer: {
     flexDirection: "row",

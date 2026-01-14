@@ -19,8 +19,10 @@ import { formatDate, getMatchResult, getResultColor } from "../utils/helpers";
 
 // Memoized MatchCard component
 const MatchCard = memo(({ match, onPress, theme }) => {
-  const result = getMatchResult(match.goalsFor, match.goalsAgainst);
-  const resultColor = getResultColor(result);
+  const result = match.isFinished
+    ? getMatchResult(match.goalsFor, match.goalsAgainst)
+    : null;
+  const resultColor = result ? getResultColor(result) : theme.textSecondary;
 
   return (
     <TouchableOpacity
@@ -38,11 +40,11 @@ const MatchCard = memo(({ match, onPress, theme }) => {
         <Text style={[styles.matchOpponent, { color: theme.text }]}>
           {match.opponent}
         </Text>
-        <View style={[styles.resultBadge, { backgroundColor: resultColor }]}>
-          <Text style={styles.resultText}>
-            {result ? result.toUpperCase() : "SCH"}
-          </Text>
-        </View>
+        {match.isFinished && (
+          <View style={[styles.resultBadge, { backgroundColor: resultColor }]}>
+            <Text style={styles.resultText}>{result.toUpperCase()}</Text>
+          </View>
+        )}
       </View>
       <View style={styles.matchRow}>
         <View style={styles.matchInfo}>

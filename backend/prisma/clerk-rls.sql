@@ -7,6 +7,7 @@ ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE players ENABLE ROW LEVEL SECURITY;
 ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE player_match_stats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE waitlist_signups ENABLE ROW LEVEL SECURITY;
 
 -- Users table policies
 CREATE POLICY "Users can view their own data"
@@ -116,3 +117,22 @@ CREATE POLICY "Users can delete their own player match stats"
       AND m.user_id = current_setting('app.current_user_id', TRUE)
     )
   );
+
+-- Waitlist signups table policies
+-- Note: Waitlist signups are typically public for INSERT (anyone can sign up)
+-- but only admins should be able to view/update/delete
+CREATE POLICY "Anyone can insert waitlist signups"
+  ON waitlist_signups FOR INSERT
+  WITH CHECK (TRUE);
+
+CREATE POLICY "Only admins can view waitlist signups"
+  ON waitlist_signups FOR SELECT
+  USING (FALSE); -- Set to FALSE by default; modify based on your admin authentication logic
+
+CREATE POLICY "Only admins can update waitlist signups"
+  ON waitlist_signups FOR UPDATE
+  USING (FALSE); -- Set to FALSE by default; modify based on your admin authentication logic
+
+CREATE POLICY "Only admins can delete waitlist signups"
+  ON waitlist_signups FOR DELETE
+  USING (FALSE); -- Set to FALSE by default; modify based on your admin authentication logic
